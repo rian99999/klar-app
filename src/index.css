@@ -1,0 +1,37 @@
+@import "tailwindcss";
+@config "../tailwind.config.js";
+
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: #e5e7eb;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply min-h-[100dvh] bg-klar-50 font-sans text-klar-900 antialiased;
+    background:
+      radial-gradient(circle at top left, rgb(191 224 242 / 0.45), transparent 32rem),
+      linear-gradient(180deg, #f2f7fb 0%, #f8f5ef 100%);
+    font-weight: 300;
+  }
+
+  ::selection {
+    @apply bg-klar-300 text-klar-950;
+  }
+}
+
+@layer components {
+  .brand-kicker {
+    @apply text-[9px] font-medium uppercase tracking-brand text-klar-500;
+  }
+
+  .brand-title {
+    @apply font-display font-medium tracking-tight text-klar-900;
+  }
+}
