@@ -9,7 +9,7 @@ const rootDir = path.resolve(__dirname, '..')
 const isProduction =
   process.env.NODE_ENV === 'production' || process.argv.includes('--production')
 const port = Number(process.env.PORT || 5173)
-const host = process.env.HOST || '127.0.0.1'
+const host = process.env.HOST || '0.0.0.0';
 const dbPath = path.resolve(
   rootDir,
   process.env.KLAR_DB_PATH || path.join('server', 'data', 'klar-db.json'),
