@@ -25,6 +25,9 @@ const AppDataContext = createContext(null)
 export function AppDataProvider({ children }) {
   const [state, setState] = useState(() => loadState())
   const [serverLoaded, setServerLoaded] = useState(false)
+  // 'idle' | 'saving' | 'saved' | 'offline' — surfaced in the app header so the
+  // user can tell whether their edits reached the server.
+  const [syncStatus, setSyncStatus] = useState('idle')
   const initialLocalStateRef = useRef(state)
 
   useEffect(() => {
@@ -41,6 +44,7 @@ export function AppDataProvider({ children }) {
       })
       .catch((error) => {
         console.warn('[klar-sync] Server load failed. Using local cache.', error)
+        if (!cancelled) setSyncStatus('offline')
       })
       .finally(() => {
         if (!cancelled) setServerLoaded(true)
@@ -52,9 +56,25 @@ export function AppDataProvider({ children }) {
 
   useEffect(() => {
     if (!serverLoaded) return
-    saveState(state).catch((error) => {
-      console.warn('[klar-sync] Server save failed. Local cache was kept.', error)
-    })
+    let cancelled = false
+    // Coalesce bursts of edits into one PUT, and keep the status transition out
+    // of the render pass.
+    const timer = window.setTimeout(() => {
+      if (cancelled) return
+      setSyncStatus('saving')
+      saveState(state)
+        .then(() => {
+          if (!cancelled) setSyncStatus('saved')
+        })
+        .catch((error) => {
+          console.warn('[klar-sync] Server save failed. Local cache was kept.', error)
+          if (!cancelled) setSyncStatus('offline')
+        })
+    }, 250)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
   }, [serverLoaded, state])
 
   const touchCustomer = useCallback((customerId) => {
@@ -360,8 +380,8 @@ export function AppDataProvider({ children }) {
   )
 
   const value = useMemo(
-    () => ({ state, actions }),
-    [state, actions],
+    () => ({ state, actions, ready: serverLoaded, syncStatus }),
+    [state, actions, serverLoaded, syncStatus],
   )
 
   return (

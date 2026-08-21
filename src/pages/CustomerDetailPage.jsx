@@ -1,21 +1,90 @@
 import { useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import {
-  PERSONAL_TYPE_MAP,
-} from '../data/constants.js'
+import { PERSONAL_TYPE_MAP } from '../data/constants.js'
 import { useAppData } from '../context/AppDataContext.jsx'
-import { formatDateKo } from '../lib/format.js'
+import { useToast } from '../components/Toast.jsx'
+import { formatDateKo, formatPhone, phoneDigits } from '../lib/format.js'
+import { toneBadgeVariant } from '../lib/product.js'
+import { cn } from '../lib/cn.js'
 import { ProductCatalog } from '../components/ProductCatalog.jsx'
+import { Icon } from '../components/Icon.jsx'
 import {
+  Badge,
   Button,
   Card,
+  EmptyState,
   Field,
   Input,
   PageHeader,
+  SectionHeader,
+  StatTile,
   Textarea,
 } from '../components/Ui.jsx'
 
+/** Collapsible card shell shared by the personal-colour and makeup history lists. */
+function HistoryItem({ open, onToggle, title, subtitle, badge, children }) {
+  return (
+    <Card className="overflow-hidden p-0">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-klar-50"
+      >
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-semibold text-klar-500">{subtitle}</p>
+          <p className="mt-1 truncate text-[15px] font-semibold text-ink">{title}</p>
+        </div>
+        {badge}
+        <Icon
+          name="chevronDown"
+          className={cn(
+            'h-4 w-4 text-ink-faint transition duration-200 ease-smooth',
+            open ? 'rotate-180' : null,
+          )}
+        />
+      </button>
+      {open ? (
+        <div className="space-y-3 border-t border-line bg-surface-sunken px-4 py-4">
+          {children}
+        </div>
+      ) : null}
+    </Card>
+  )
+}
+
+function NoteBlock({ label, children }) {
+  return (
+    <div className="rounded-md border border-line bg-white p-4">
+      <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-klar-500">
+        {label}
+      </p>
+      <div className="whitespace-pre-wrap text-sm leading-6 text-ink-soft">{children}</div>
+    </div>
+  )
+}
+
+function ContactActions({ customer }) {
+  const digits = phoneDigits(customer.phone)
+  if (!digits) return null
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      <a href={`tel:${digits}`} className="block">
+        <Button variant="secondary" className="w-full" icon="phone">
+          전화
+        </Button>
+      </a>
+      <a href={`sms:${digits}`} className="block">
+        <Button variant="secondary" className="w-full" icon="message">
+          문자
+        </Button>
+      </a>
+    </div>
+  )
+}
+
 function CustomerBasicsEditor({ customer, onSave }) {
+  const [open, setOpen] = useState(false)
   const [name, setName] = useState(customer.name)
   const [phone, setPhone] = useState(customer.phone ?? '')
   const [email, setEmail] = useState(customer.email ?? '')
@@ -29,45 +98,63 @@ function CustomerBasicsEditor({ customer, onSave }) {
       email: email.trim(),
       memo: memo.trim(),
     })
+    setOpen(false)
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mb-6 space-y-3">
-      <Card className="space-y-4">
-        <h2 className="text-xs font-bold uppercase tracking-wide text-klar-800">
-          기본 정보
-        </h2>
-        <Field label="이름">
-          <Input value={name} onChange={(e) => setName(e.target.value)} required />
-        </Field>
-        <Field label="연락처">
-          <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
-        </Field>
-        <Field label="이메일">
-          <Input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </Field>
-        <div>
-          <label className="mb-1.5 block text-xs font-semibold text-slate-600">
-            메모
-          </label>
-          <Textarea value={memo} onChange={(e) => setMemo(e.target.value)} />
-        </div>
-        <div className="flex gap-2">
-          <Button type="submit" className="flex-1">
+    <Card className="p-0">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-klar-50"
+      >
+        <span className="flex-1 text-[15px] font-semibold text-ink">기본 정보</span>
+        {!open && customer.memo ? (
+          <span className="max-w-[10rem] truncate text-xs text-ink-muted">
+            {customer.memo}
+          </span>
+        ) : null}
+        <Icon
+          name="chevronDown"
+          className={cn(
+            'h-4 w-4 text-ink-faint transition duration-200 ease-smooth',
+            open ? 'rotate-180' : null,
+          )}
+        />
+      </button>
+      {open ? (
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-4 border-t border-line bg-surface-sunken px-4 py-4"
+        >
+          <Field label="이름">
+            <Input value={name} onChange={(e) => setName(e.target.value)} required />
+          </Field>
+          <Field label="연락처">
+            <Input
+              value={phone}
+              onChange={(e) => setPhone(formatPhone(e.target.value))}
+              inputMode="tel"
+            />
+          </Field>
+          <Field label="이메일">
+            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          </Field>
+          <Field label="메모">
+            <Textarea value={memo} onChange={(e) => setMemo(e.target.value)} />
+          </Field>
+          <Button type="submit" className="w-full">
             기본 정보 저장
           </Button>
-        </div>
-      </Card>
-    </form>
+        </form>
+      ) : null}
+    </Card>
   )
 }
 
 function ResultShareCard({ customer }) {
-  const [copied, setCopied] = useState(false)
+  const { toast } = useToast()
   const resultPath = `/result/${customer.id}`
   const resultUrl =
     typeof window === 'undefined'
@@ -77,38 +164,39 @@ function ResultShareCard({ customer }) {
   async function copyLink() {
     try {
       await navigator.clipboard.writeText(resultUrl)
-      setCopied(true)
-      window.setTimeout(() => setCopied(false), 1600)
+      toast('결과지 링크를 복사했습니다.')
     } catch {
       window.prompt('결과지 확인 링크를 복사해 주세요.', resultUrl)
     }
   }
 
   return (
-    <Card className="mb-6 space-y-3 border-klar-100 bg-gradient-to-br from-white to-klar-50">
+    <Card className="space-y-3.5 border-klar-200 bg-gradient-to-br from-white via-klar-50 to-pearl-50">
       <div>
         <p className="brand-kicker">Client Link</p>
-        <h2 className="brand-title mt-1 text-xl">고객 결과지 확인 링크</h2>
-        <p className="mt-2 text-xs leading-5 text-klar-500">
-          고객은 이 링크에서 이름과 연락처 뒷 4자리를 입력하면 본인 자료만 볼 수 있습니다.
+        <h2 className="brand-title mt-1 text-lg">고객 결과지 링크</h2>
+        <p className="mt-1.5 text-xs leading-5 text-ink-muted">
+          고객이 이름과 연락처 뒷 4자리를 입력하면 본인 자료만 볼 수 있습니다.
         </p>
       </div>
-      <div className="rounded-[10px] border border-klar-100 bg-white/85 px-3 py-2 text-xs text-klar-700 break-all">
+
+      <p className="break-all rounded-md border border-line bg-white/85 px-3 py-2.5 font-mono text-[11px] leading-5 text-ink-soft">
         {resultUrl}
-      </div>
+      </p>
+
       {!customer.phone ? (
-        <p className="text-xs font-medium text-rose-700">
-          연락처가 없어 고객 본인 확인이 불가능합니다. 연락처를 먼저 저장해 주세요.
+        <p className="flex items-start gap-1.5 rounded-md bg-amber-50 px-3 py-2.5 text-xs font-medium leading-5 text-amber-700">
+          <Icon name="shield" className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          연락처가 없어 본인 확인이 불가능합니다. 연락처를 먼저 저장해 주세요.
         </p>
       ) : null}
+
       <div className="grid grid-cols-2 gap-2">
-        <Button type="button" variant="secondary" onClick={copyLink}>
-          {copied ? '복사 완료' : '링크 복사'}
+        <Button variant="secondary" onClick={copyLink} icon="link">
+          링크 복사
         </Button>
         <Link to={resultPath}>
-          <Button type="button" className="w-full">
-            미리보기
-          </Button>
+          <Button className="w-full">미리보기</Button>
         </Link>
       </div>
     </Card>
@@ -119,22 +207,34 @@ export function CustomerDetailPage() {
   const { customerId } = useParams()
   const navigate = useNavigate()
   const { state, actions } = useAppData()
+  const { toast } = useToast()
 
   const customer = state.customers.find((c) => c.id === customerId)
 
-  const personalSessions = useMemo(() => {
-    return state.personalColorSessions
-      .filter((p) => p.customerId === customerId)
-      .slice()
-      .sort((a, b) => String(b.dateISO).localeCompare(String(a.dateISO)))
-  }, [state.personalColorSessions, customerId])
+  const personalSessions = useMemo(
+    () =>
+      state.personalColorSessions
+        .filter((p) => p.customerId === customerId)
+        .slice()
+        .sort((a, b) => String(b.dateISO).localeCompare(String(a.dateISO))),
+    [state.personalColorSessions, customerId],
+  )
 
-  const makeupSessions = useMemo(() => {
-    return state.makeupConsultSessions
-      .filter((m) => m.customerId === customerId)
-      .slice()
-      .sort((a, b) => String(b.dateISO).localeCompare(String(a.dateISO)))
-  }, [state.makeupConsultSessions, customerId])
+  const makeupSessions = useMemo(
+    () =>
+      state.makeupConsultSessions
+        .filter((m) => m.customerId === customerId)
+        .slice()
+        .sort((a, b) => String(b.dateISO).localeCompare(String(a.dateISO))),
+    [state.makeupConsultSessions, customerId],
+  )
+
+  const upcoming = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10)
+    return state.appointments
+      .filter((a) => a.customerId === customerId && a.date >= today)
+      .sort((a, b) => String(a.date).localeCompare(String(b.date)))[0]
+  }, [state.appointments, customerId])
 
   const [openPersonalId, setOpenPersonalId] = useState(null)
   const [openMakeupId, setOpenMakeupId] = useState(null)
@@ -142,9 +242,9 @@ export function CustomerDetailPage() {
   if (!customer) {
     return (
       <div>
-        <PageHeader title="고객을 찾을 수 없습니다" />
+        <PageHeader title="고객을 찾을 수 없습니다" back="/customers" />
         <Button variant="secondary" onClick={() => navigate('/customers')}>
-          목록으로
+          고객 목록으로
         </Button>
       </div>
     )
@@ -158,139 +258,125 @@ export function CustomerDetailPage() {
       return
     }
     actions.deleteCustomer(customer.id)
+    toast('고객과 관련 기록을 삭제했습니다.', { tone: 'info' })
     navigate('/customers', { replace: true })
   }
 
   return (
-    <div>
-      <PageHeader title={customer.name} subtitle={customer.phone || '연락처 미입력'} />
+    <div className="space-y-6">
+      <PageHeader
+        kicker="Client"
+        title={customer.name}
+        subtitle={customer.phone || '연락처 미입력'}
+        back="/customers"
+      />
+
+      <ContactActions customer={customer} />
+
+      <div className="grid grid-cols-2 divide-x divide-line overflow-hidden rounded-lg border border-line bg-white/85 shadow-card">
+        <StatTile label="Personal Color" value={personalSessions.length} suffix="회" />
+        <StatTile label="Makeup" value={makeupSessions.length} suffix="회" />
+      </div>
+
+      {upcoming ? (
+        <Link to={`/appointments/${upcoming.id}/edit`} className="block">
+          <Card className="flex items-center gap-3 border-klar-200 bg-klar-50/70 transition hover:border-klar-300">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-klar-600">
+              <Icon name="calendar" className="h-4 w-4" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-semibold text-klar-500">다음 예약</p>
+              <p className="mt-0.5 truncate text-sm font-semibold text-ink">
+                {formatDateKo(`${upcoming.date}T12:00:00`)}
+                {upcoming.time ? ` · ${upcoming.time.slice(0, 5)}` : ''}
+              </p>
+            </div>
+            <Icon name="chevronRight" className="h-4 w-4 text-ink-faint" />
+          </Card>
+        </Link>
+      ) : null}
 
       <CustomerBasicsEditor
         key={customer.updatedAt}
         customer={customer}
-        onSave={(payload) =>
-          actions.upsertCustomer({
-            id: customer.id,
-            ...payload,
-          })
-        }
+        onSave={(payload) => {
+          actions.upsertCustomer({ id: customer.id, ...payload })
+          toast('기본 정보를 저장했습니다.')
+        }}
       />
 
       <ResultShareCard customer={customer} />
 
-      <div className="mb-10 grid grid-cols-2 gap-3">
-        <Card className="bg-gradient-to-br from-white to-klar-50">
-          <p className="text-[11px] font-semibold text-klar-800">
-            퍼스널컬러 진단
-          </p>
-          <p className="mt-2 text-2xl font-bold text-slate-900 tabular-nums">
-            {personalSessions.length}
-            <span className="text-sm font-semibold text-slate-400"> 회</span>
-          </p>
-        </Card>
-        <Card className="bg-gradient-to-br from-white to-slate-50">
-          <p className="text-[11px] font-semibold text-slate-700">
-            메이크업 컨설팅
-          </p>
-          <p className="mt-2 text-2xl font-bold text-slate-900 tabular-nums">
-            {makeupSessions.length}
-            <span className="text-sm font-semibold text-slate-400"> 회</span>
-          </p>
-        </Card>
-      </div>
-
       {/* 퍼스널컬러 */}
-      <section className="mb-8">
-        <div className="mb-3 flex items-center justify-between gap-2">
-          <h2 className="text-sm font-bold text-slate-900">
-            진단 코스 · 퍼스널컬러
-          </h2>
-          <Link to={`/customers/${customer.id}/personal/new`}>
-            <Button variant="secondary" className="px-3 py-2 text-[11px]">
-              새 결과지
-            </Button>
-          </Link>
-        </div>
+      <section>
+        <SectionHeader
+          kicker="Personal Color"
+          title="퍼스널컬러 진단"
+          count={personalSessions.length || undefined}
+          action={
+            <Link to={`/customers/${customer.id}/personal/new`}>
+              <Button variant="secondary" size="sm" icon="plus">
+                새 결과지
+              </Button>
+            </Link>
+          }
+        />
         {personalSessions.length === 0 ? (
-          <Card className="border-dashed border-klar-100 bg-white py-10 text-center text-sm text-slate-500">
-            등록된 퍼스널컬러 결과지가 없습니다.
-          </Card>
+          <EmptyState
+            icon="sparkle"
+            title="등록된 결과지가 없습니다"
+            description="진단을 마치면 결과지를 남겨 고객에게 링크로 공유할 수 있어요."
+          />
         ) : (
-          <ul className="flex flex-col gap-3">
-            {personalSessions.map((s) => {
-              const expanded = openPersonalId === s.id
-              const p1 = PERSONAL_TYPE_MAP[s.primaryTypeKey]?.label ?? s.primaryTypeKey
-              const p2 = s.secondaryTypeKey
-                ? PERSONAL_TYPE_MAP[s.secondaryTypeKey]?.label ?? s.secondaryTypeKey
+          <ul className="flex flex-col gap-2.5">
+            {personalSessions.map((session) => {
+              const primary =
+                PERSONAL_TYPE_MAP[session.primaryTypeKey]?.label ?? session.primaryTypeKey
+              const secondary = session.secondaryTypeKey
+                ? PERSONAL_TYPE_MAP[session.secondaryTypeKey]?.label ??
+                  session.secondaryTypeKey
                 : null
               return (
-                <li key={s.id}>
-                  <Card className="overflow-hidden border-klar-100 p-0">
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-3 border-b border-slate-50 bg-white px-4 py-3 text-left"
-                      onClick={() =>
-                        setOpenPersonalId((cur) => (cur === s.id ? null : s.id))
-                      }
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-klar-800">
-                          {formatDateKo(s.dateISO)}
-                        </p>
-                        <p className="mt-1 truncate text-sm text-slate-900">
-                          {s.tone === 'warm' ? '웜톤' : '쿨톤'} · 1순위 {p1}
-                          {p2 ? ` · 2순위 ${p2}` : ''}
-                        </p>
-                      </div>
-                      <svg
-                        className={`h-5 w-5 shrink-0 text-slate-400 transition ${
-                          expanded ? 'rotate-180' : ''
-                        }`}
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth="2"
-                        stroke="currentColor"
-                        aria-hidden
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M19 9l-7 7-7-7"
-                        />
-                      </svg>
-                    </button>
-                    {expanded ? (
-                      <div className="space-y-3 bg-slate-50 px-4 py-4">
-                        <div className="rounded-xl bg-white p-4 text-sm text-slate-700 shadow-inner shadow-slate-100">
-                          <p className="text-xs font-semibold text-slate-500 mb-2">
-                            특이사항 · 메모
-                          </p>
-                          <p className="whitespace-pre-wrap">{s.memo || '기록 없음'}</p>
-                        </div>
-                        <div className="rounded-xl bg-white p-3 shadow-inner shadow-slate-100">
-                          <div className="mb-3">
-                            <p className="text-xs font-semibold text-klar-800">
-                              결과 톤 맞춤 추천 제품
-                            </p>
-                            <p className="mt-1 text-[11px] leading-5 text-klar-500">
-                              선택한 카테고리 탭 기준으로 추가 필터링할 수 있습니다.
-                            </p>
-                          </div>
-                          <ProductCatalog
-                            products={state.toneRecommendProducts}
-                            categoryVisibility={state.productCategoryVisibility}
-                            toneKeys={[s.primaryTypeKey, s.secondaryTypeKey].filter(Boolean)}
-                            emptyMessage="이 결과 톤에 맞는 노출 제품이 아직 없습니다."
-                          />
-                        </div>
-                        <Link to={`/customers/${customer.id}/personal/${s.id}`}>
-                          <Button variant="secondary" className="w-full py-3 text-xs">
-                            결과지 수정하기
-                          </Button>
-                        </Link>
-                      </div>
+                <li key={session.id}>
+                  <HistoryItem
+                    open={openPersonalId === session.id}
+                    onToggle={() =>
+                      setOpenPersonalId((cur) => (cur === session.id ? null : session.id))
+                    }
+                    subtitle={formatDateKo(session.dateISO)}
+                    title={primary}
+                    badge={
+                      <Badge tone={toneBadgeVariant(session.primaryTypeKey)}>
+                        {session.tone === 'warm' ? '웜톤' : '쿨톤'}
+                      </Badge>
+                    }
+                  >
+                    {secondary ? (
+                      <p className="text-xs text-ink-muted">보조 타입 · {secondary}</p>
                     ) : null}
-                  </Card>
+                    <NoteBlock label="특이사항 · 메모">
+                      {session.memo || '기록 없음'}
+                    </NoteBlock>
+                    <div className="rounded-md border border-line bg-white p-3">
+                      <p className="mb-3 text-[13px] font-semibold text-ink">
+                        결과 톤 맞춤 추천 제품
+                      </p>
+                      <ProductCatalog
+                        products={state.toneRecommendProducts}
+                        categoryVisibility={state.productCategoryVisibility}
+                        toneKeys={[
+                          session.primaryTypeKey,
+                          session.secondaryTypeKey,
+                        ].filter(Boolean)}
+                        emptyMessage="이 결과 톤에 맞는 노출 제품이 아직 없습니다"
+                      />
+                    </div>
+                    <Link to={`/customers/${customer.id}/personal/${session.id}`}>
+                      <Button variant="secondary" className="w-full">
+                        결과지 수정
+                      </Button>
+                    </Link>
+                  </HistoryItem>
                 </li>
               )
             })}
@@ -299,115 +385,85 @@ export function CustomerDetailPage() {
       </section>
 
       {/* 메이크업 */}
-      <section className="mb-10">
-        <div className="mb-3 flex items-center justify-between gap-2">
-          <h2 className="text-sm font-bold text-slate-900">
-            진단 코스 · 메이크업 컨설팅
-          </h2>
-          <Link to={`/customers/${customer.id}/consult/new`}>
-            <Button variant="secondary" className="px-3 py-2 text-[11px]">
-              새 기록
-            </Button>
-          </Link>
-        </div>
+      <section>
+        <SectionHeader
+          kicker="Makeup"
+          title="메이크업 컨설팅"
+          count={makeupSessions.length || undefined}
+          action={
+            <Link to={`/customers/${customer.id}/consult/new`}>
+              <Button variant="secondary" size="sm" icon="plus">
+                새 기록
+              </Button>
+            </Link>
+          }
+        />
         {makeupSessions.length === 0 ? (
-          <Card className="border-dashed py-10 text-center text-sm text-slate-500">
-            등록된 메이크업 컨설팅 기록이 없습니다.
-          </Card>
+          <EmptyState
+            icon="lipstick"
+            title="등록된 컨설팅 기록이 없습니다"
+            description="당일 사용한 제품을 남겨 두면 다음 방문 때 그대로 이어갈 수 있어요."
+          />
         ) : (
-          <ul className="flex flex-col gap-3">
-            {makeupSessions.map((m) => {
-              const expanded = openMakeupId === m.id
-              return (
-                <li key={m.id}>
-                  <Card className="overflow-hidden p-0 border-slate-100">
-                    <button
-                      type="button"
-                      className="flex w-full items-center gap-3 border-b border-slate-50 px-4 py-3 text-left bg-white"
-                      onClick={() =>
-                        setOpenMakeupId((cur) => (cur === m.id ? null : m.id))
-                      }
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-slate-700">
-                          {formatDateKo(m.dateISO)}
-                        </p>
-                        <p className="mt-1 text-sm text-slate-900">
-                          사용 제품 {m.products?.length ?? 0}개
-                        </p>
-                      </div>
-                      <svg
-                        className={`h-5 w-5 shrink-0 text-slate-400 transition ${
-                          expanded ? 'rotate-180' : ''
-                        }`}
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        strokeWidth="2"
-                        stroke="currentColor"
-                        aria-hidden
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M19 9l-7 7-7-7"
-                        />
-                      </svg>
-                    </button>
-                    {expanded ? (
-                      <div className="space-y-3 bg-slate-50 px-4 py-4">
-                        {m.memo ? (
-                          <div className="rounded-xl bg-white p-4 text-sm text-slate-700 shadow-inner">
-                            <p className="text-xs font-semibold text-slate-500 mb-1">
-                              세션 메모
-                            </p>
-                            <p className="whitespace-pre-wrap">{m.memo}</p>
-                          </div>
-                        ) : null}
-                        <div className="rounded-xl bg-white shadow-inner divide-y divide-slate-100 overflow-hidden">
-                          {(m.products ?? []).length === 0 ? (
-                            <p className="px-4 py-4 text-xs text-slate-500">
-                              등록된 제품이 없습니다.
-                            </p>
-                          ) : (
-                            <ul className="max-h-64 overflow-y-auto">
-                              {m.products.map((p, idx) => (
-                                <li
-                                  key={p.lineId ?? idx}
-                                  className="border-b border-slate-50 last:border-0 px-4 py-3 text-xs"
-                                >
-                                  <p className="font-semibold text-slate-900">
-                                    [{p.category}] {p.productName || '제품명 미입력'}
+          <ul className="flex flex-col gap-2.5">
+            {makeupSessions.map((session) => (
+              <li key={session.id}>
+                <HistoryItem
+                  open={openMakeupId === session.id}
+                  onToggle={() =>
+                    setOpenMakeupId((cur) => (cur === session.id ? null : session.id))
+                  }
+                  subtitle={formatDateKo(session.dateISO)}
+                  title={`사용 제품 ${session.products?.length ?? 0}개`}
+                >
+                  {session.memo ? (
+                    <NoteBlock label="세션 메모">{session.memo}</NoteBlock>
+                  ) : null}
+                  <div className="overflow-hidden rounded-md border border-line bg-white">
+                    {(session.products ?? []).length === 0 ? (
+                      <p className="px-4 py-4 text-xs text-ink-muted">
+                        등록된 제품이 없습니다.
+                      </p>
+                    ) : (
+                      <ul className="divide-y divide-line-soft">
+                        {session.products.map((product, idx) => (
+                          <li key={product.lineId ?? idx} className="px-4 py-3">
+                            <div className="flex items-start gap-2">
+                              <Badge className="mt-0.5">{product.category}</Badge>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[13px] font-semibold text-ink">
+                                  {product.productName || '제품명 미입력'}
+                                </p>
+                                <p className="mt-0.5 text-[11px] text-ink-muted">
+                                  {[product.brand, product.shade]
+                                    .filter(Boolean)
+                                    .join(' · ') || '브랜드/색상 미입력'}
+                                </p>
+                                {product.memo ? (
+                                  <p className="mt-1.5 text-[11px] leading-5 text-ink-muted">
+                                    {product.memo}
                                   </p>
-                                  <p className="mt-1 text-[11px] text-slate-600">
-                                    {p.brand}
-                                    {p.shade ? ` · ${p.shade}` : ''}
-                                  </p>
-                                  {p.memo ? (
-                                    <p className="mt-1 text-[11px] text-slate-500">
-                                      {p.memo}
-                                    </p>
-                                  ) : null}
-                                </li>
-                              ))}
-                            </ul>
-                          )}
-                        </div>
-                        <Link to={`/customers/${customer.id}/consult/${m.id}`}>
-                          <Button variant="secondary" className="w-full py-3 text-xs">
-                            기록 수정하기
-                          </Button>
-                        </Link>
-                      </div>
-                    ) : null}
-                  </Card>
-                </li>
-              )
-            })}
+                                ) : null}
+                              </div>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                  <Link to={`/customers/${customer.id}/consult/${session.id}`}>
+                    <Button variant="secondary" className="w-full">
+                      기록 수정
+                    </Button>
+                  </Link>
+                </HistoryItem>
+              </li>
+            ))}
           </ul>
         )}
       </section>
 
-      <Button variant="danger" className="w-full mb-10" type="button" onClick={removeCustomer}>
+      <Button variant="dangerQuiet" className="w-full" icon="trash" onClick={removeCustomer}>
         고객 삭제 (관련 데이터 모두 삭제)
       </Button>
     </div>

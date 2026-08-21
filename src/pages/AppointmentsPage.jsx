@@ -1,107 +1,225 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import {
-  APPOINTMENT_COURSE_MAP,
-} from '../data/constants.js'
+import { APPOINTMENT_COURSE_MAP } from '../data/constants.js'
 import { useAppData } from '../context/AppDataContext.jsx'
-import { isoDateOnly } from '../lib/format.js'
-import { Button, Card, PageHeader } from '../components/Ui.jsx'
+import {
+  dayOfMonth,
+  formatDateShort,
+  formatTime,
+  isoDateOnly,
+  relativeDayLabel,
+  shiftIsoDate,
+  weekDatesOf,
+  weekdayKo,
+} from '../lib/format.js'
+import { cn } from '../lib/cn.js'
+import { Icon } from '../components/Icon.jsx'
+import {
+  Badge,
+  Button,
+  Card,
+  CardLink,
+  DateInput,
+  EmptyState,
+  PageHeader,
+} from '../components/Ui.jsx'
+
+/** Weekday strip so the whole week is scannable without opening a date picker. */
+function WeekStrip({ selected, onSelect, countsByDate, today }) {
+  const week = useMemo(() => weekDatesOf(selected), [selected])
+
+  return (
+    <div className="flex items-center gap-1">
+      <button
+        type="button"
+        aria-label="이전 주"
+        onClick={() => onSelect(shiftIsoDate(selected, -7))}
+        className="flex h-11 w-8 shrink-0 items-center justify-center rounded-md text-ink-muted transition hover:bg-klar-100 hover:text-klar-700"
+      >
+        <Icon name="chevronLeft" className="h-4 w-4" />
+      </button>
+      <div className="grid flex-1 grid-cols-7 gap-1">
+        {week.map((iso) => {
+          const active = iso === selected
+          const isToday = iso === today
+          const count = countsByDate.get(iso) ?? 0
+          const weekday = weekdayKo(iso)
+          return (
+            <button
+              key={iso}
+              type="button"
+              aria-pressed={active}
+              aria-label={`${formatDateShort(`${iso}T12:00:00`)} 예약 ${count}건`}
+              onClick={() => onSelect(iso)}
+              className={cn(
+                'flex flex-col items-center gap-1 rounded-md py-2 transition duration-200 ease-smooth',
+                active
+                  ? 'bg-klar-700 text-white shadow-lift'
+                  : 'text-ink-soft hover:bg-klar-100',
+              )}
+            >
+              <span
+                className={cn(
+                  'text-[10px] font-semibold',
+                  active
+                    ? 'text-klar-200'
+                    : weekday === '일'
+                      ? 'text-rose-400'
+                      : weekday === '토'
+                        ? 'text-klar-500'
+                        : 'text-ink-faint',
+                )}
+              >
+                {weekday}
+              </span>
+              <span
+                className={cn(
+                  'text-[15px] font-semibold leading-none tabular-nums',
+                  !active && isToday ? 'text-klar-600' : null,
+                )}
+              >
+                {dayOfMonth(iso)}
+              </span>
+              <span
+                className={cn(
+                  'h-1.5 w-1.5 rounded-full',
+                  count > 0
+                    ? active
+                      ? 'bg-white'
+                      : 'bg-klar-500'
+                    : 'bg-transparent',
+                )}
+              />
+            </button>
+          )
+        })}
+      </div>
+      <button
+        type="button"
+        aria-label="다음 주"
+        onClick={() => onSelect(shiftIsoDate(selected, 7))}
+        className="flex h-11 w-8 shrink-0 items-center justify-center rounded-md text-ink-muted transition hover:bg-klar-100 hover:text-klar-700"
+      >
+        <Icon name="chevronRight" className="h-4 w-4" />
+      </button>
+    </div>
+  )
+}
 
 export function AppointmentsPage() {
   const { state } = useAppData()
-  const [date, setDate] = useState(() => isoDateOnly())
+  const today = isoDateOnly()
+  const [date, setDate] = useState(today)
 
-  const list = useMemo(() => {
-    return state.appointments
-      .filter((a) => a.date === date)
-      .slice()
-      .sort((a, b) =>
-        String(a.time || '').localeCompare(String(b.time || '')),
-      )
-  }, [date, state.appointments])
+  const countsByDate = useMemo(() => {
+    const counts = new Map()
+    state.appointments.forEach((a) => {
+      counts.set(a.date, (counts.get(a.date) ?? 0) + 1)
+    })
+    return counts
+  }, [state.appointments])
+
+  const customerById = useMemo(
+    () => new Map(state.customers.map((c) => [c.id, c])),
+    [state.customers],
+  )
+
+  const list = useMemo(
+    () =>
+      state.appointments
+        .filter((a) => a.date === date)
+        .slice()
+        .sort((a, b) => String(a.time || '').localeCompare(String(b.time || ''))),
+    [date, state.appointments],
+  )
 
   return (
     <div>
       <PageHeader
         title="예약 관리"
-        subtitle={`${date} 일정`}
+        subtitle={`${formatDateShort(`${date}T12:00:00`)} · ${relativeDayLabel(date, today)}`}
         right={
           <Link to={`/appointments/new?date=${encodeURIComponent(date)}`}>
-            <Button className="px-4 py-2 text-xs shadow-lg shadow-klar-900/10">
+            <Button size="sm" icon="plus">
               등록
             </Button>
           </Link>
         }
       />
 
-      <div className="mb-4 flex items-center gap-3 rounded-2xl border border-dashed border-klar-200 bg-white px-3 py-2">
-        <label className="flex flex-1 items-center gap-2 text-xs font-semibold text-slate-600">
-          조회 일자
-          <input
-            type="date"
-            className="flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-900 outline-none focus:border-klar-400"
+      <Card className="mb-5 space-y-3 p-3">
+        <WeekStrip
+          selected={date}
+          onSelect={setDate}
+          countsByDate={countsByDate}
+          today={today}
+        />
+        <div className="flex items-center gap-2 border-t border-line pt-3">
+          <DateInput
+            className="flex-1 py-2.5 text-sm"
             value={date}
-            onChange={(e) => setDate(e.target.value)}
+            onChange={(e) => e.target.value && setDate(e.target.value)}
+            aria-label="조회 일자"
           />
-        </label>
-        <Button
-          variant="ghost"
-          type="button"
-          className="shrink-0 px-3 py-2 text-[11px]"
-          onClick={() => setDate(isoDateOnly())}
-        >
-          오늘
-        </Button>
-      </div>
+          <Button
+            variant={date === today ? 'subtle' : 'secondary'}
+            size="sm"
+            onClick={() => setDate(today)}
+          >
+            오늘
+          </Button>
+        </div>
+      </Card>
 
       {list.length === 0 ? (
-        <Card className="border-dashed bg-slate-50 py-14 text-center text-sm text-slate-600">
-          이 날짜에는 예약이 없습니다.
-          <div className="mt-6">
+        <EmptyState
+          icon="calendar"
+          title="이 날짜에는 예약이 없습니다"
+          description="위 주간 달력에서 점이 있는 날짜에 일정이 등록되어 있어요."
+          action={
             <Link to={`/appointments/new?date=${encodeURIComponent(date)}`}>
-              <Button>예약 만들기</Button>
+              <Button className="w-full" icon="plus">
+                예약 만들기
+              </Button>
             </Link>
-          </div>
-        </Card>
+          }
+        />
       ) : (
-        <ul className="flex flex-col gap-3">
-          {list.map((a) => {
-            const customer = state.customers.find((c) => c.id === a.customerId)
+        <ul className="flex flex-col gap-2.5">
+          {list.map((appointment) => {
+            const customer = customerById.get(appointment.customerId)
             return (
-              <li key={a.id}>
-                <Link to={`/appointments/${a.id}/edit`}>
-                  <Card className="group transition hover:border-klar-200 hover:shadow-lg">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                          {(a.time || '').slice(0, 5) || '시간 미정'}
+              <li key={appointment.id}>
+                <Link to={`/appointments/${appointment.id}/edit`} className="block">
+                  <CardLink className="p-0">
+                    <div className="flex items-stretch">
+                      <div className="flex w-[4.5rem] shrink-0 flex-col items-center justify-center rounded-l-lg bg-klar-100 px-2 py-3">
+                        <p className="text-lg font-semibold leading-none tabular-nums text-klar-800">
+                          {formatTime(appointment.time)}
                         </p>
-                        <p className="mt-1 font-semibold text-slate-900">
+                      </div>
+                      <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5 px-3.5 py-3">
+                        <p className="truncate text-[15px] font-semibold text-ink">
                           {customer?.name ?? '고객 미지정'}
                         </p>
-                        <p className="mt-1 text-xs text-klar-900">
-                          {APPOINTMENT_COURSE_MAP[a.course] ?? a.course}
-                        </p>
-                        {a.note ? (
-                          <p className="mt-2 line-clamp-2 text-xs text-slate-500">{a.note}</p>
+                        <div>
+                          <Badge tone="brand">
+                            {APPOINTMENT_COURSE_MAP[appointment.course] ??
+                              appointment.course}
+                          </Badge>
+                        </div>
+                        {appointment.note ? (
+                          <p className="line-clamp-2 text-xs leading-5 text-ink-muted">
+                            {appointment.note}
+                          </p>
                         ) : null}
                       </div>
-                      <svg
-                        className="mt-1 h-5 w-5 text-slate-300 group-hover:text-klar-500"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        viewBox="0 0 24 24"
-                        aria-hidden
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M8.25 4.5l7.5 7.5-7.5 7.5"
-                        />
-                      </svg>
+                      <Icon
+                        name="chevronRight"
+                        className="my-auto mr-3 h-4 w-4 text-ink-faint"
+                      />
                     </div>
-                  </Card>
+                  </CardLink>
                 </Link>
               </li>
             )
