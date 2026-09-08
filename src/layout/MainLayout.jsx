@@ -16,7 +16,7 @@ const FULL_BLEED_ROUTES = [
 const SYNC_LABELS = {
   saving: { text: '저장 중', tone: 'text-klar-500' },
   saved: { text: '저장됨', tone: 'text-klar-600' },
-  offline: { text: '오프라인 · 기기에 보관됨', tone: 'text-amber-600' },
+  offline: { text: '오프라인', tone: 'text-amber-600' },
 }
 
 function SyncBadge({ status }) {
@@ -24,7 +24,10 @@ function SyncBadge({ status }) {
   if (!label) return null
   return (
     <span
-      className={cn('flex items-center gap-1.5 text-[11px] font-medium', label.tone)}
+      className={cn(
+        'flex shrink-0 items-center gap-1.5 whitespace-nowrap text-[11px] font-medium',
+        label.tone,
+      )}
       role="status"
     >
       <span
@@ -53,9 +56,9 @@ export function MainLayout() {
               <span className="flex h-10 w-10 items-center justify-center rounded-md bg-gradient-to-br from-klar-200 to-pearl-100 shadow-inset">
                 <Wordmark className="text-base text-klar-700" />
               </span>
-              <span className="leading-tight">
+              <span className="min-w-0 leading-tight">
                 <span className="brand-kicker block">빛나는 당신을 위해</span>
-                <span className="block text-[13px] font-semibold text-ink">
+                <span className="block truncate text-[13px] font-semibold text-ink">
                   Color &amp; Makeup Studio
                 </span>
               </span>
