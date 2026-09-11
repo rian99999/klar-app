@@ -84,12 +84,28 @@ function saveLocalState(state) {
   }
 }
 
+function httpError(message, status) {
+  const error = new Error(message)
+  error.status = status
+  return error
+}
+
+/** Wipes the on-device copy — called on sign-out so a shared device is clean. */
+export function clearLocalState() {
+  try {
+    localStorage.removeItem(STORAGE_KEY)
+  } catch {
+    // ignore
+  }
+}
+
 export async function loadRemoteState() {
   const response = await fetch(API_STATE_URL, {
     headers: { Accept: 'application/json' },
+    credentials: 'same-origin',
   })
   if (!response.ok) {
-    throw new Error(`Failed to load server state: ${response.status}`)
+    throw httpError(`Failed to load server state: ${response.status}`, response.status)
   }
   const state = normalizeState(await response.json())
   saveLocalState(state)
@@ -103,10 +119,11 @@ export async function saveState(state) {
   const response = await fetch(API_STATE_URL, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
     body: JSON.stringify(nextState),
   })
   if (!response.ok) {
-    throw new Error(`Failed to save server state: ${response.status}`)
+    throw httpError(`Failed to save server state: ${response.status}`, response.status)
   }
 }
 

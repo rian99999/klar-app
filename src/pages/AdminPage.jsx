@@ -7,6 +7,7 @@ import {
   productCategoryVisibilityKey,
 } from '../data/constants.js'
 import { useAppData } from '../context/AppDataContext.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
 import { useToast } from '../components/Toast.jsx'
 import {
   categoryLabel,
@@ -30,8 +31,6 @@ import {
   SectionHeader,
   Select,
 } from '../components/Ui.jsx'
-
-const ADMIN_PASSCODE = import.meta.env.VITE_ADMIN_PASSCODE || 'klar-admin'
 
 function firstProductGroup() {
   return PRODUCT_CATEGORY_GROUPS[0]
@@ -65,60 +64,34 @@ function draftFromProduct(product) {
   }
 }
 
+/**
+ * Admin access is decided by the server-issued session role. The old
+ * VITE_ADMIN_PASSCODE check ran entirely in the browser with the code baked
+ * into the bundle, so it kept nobody out.
+ */
 function AdminGate({ children }) {
-  const { toast } = useToast()
-  const [authorized, setAuthorized] = useState(() => {
-    if (typeof sessionStorage === 'undefined') return false
-    return sessionStorage.getItem('klar-admin-authorized') === 'true'
-  })
-  const [passcode, setPasscode] = useState('')
-  const [error, setError] = useState('')
-
-  function handleSubmit(e) {
-    e.preventDefault()
-    if (passcode !== ADMIN_PASSCODE) {
-      setError('관리자 코드가 올바르지 않습니다.')
-      return
-    }
-    sessionStorage.setItem('klar-admin-authorized', 'true')
-    setError('')
-    setAuthorized(true)
-    toast('관리자 모드로 전환했습니다.')
-  }
-
-  if (authorized) return children
+  const { role } = useAuth()
+  if (role === 'admin') return children
 
   return (
     <div>
       <PageHeader
         kicker="Admin"
-        title="관리자 확인"
-        subtitle="제품 등록과 카테고리 노출을 관리하는 페이지입니다."
+        title="관리자 전용"
+        subtitle="제품 등록과 카테고리 노출은 관리자 계정에서만 변경할 수 있습니다."
         back="/makeup"
       />
-      <Card className="space-y-5">
-        <p className="flex items-start gap-2 rounded-md bg-klar-50 px-3.5 py-3 text-xs leading-5 text-ink-soft">
+      <Card className="space-y-4">
+        <p className="flex items-start gap-2 rounded-md bg-klar-50 px-3.5 py-3 text-sm leading-6 text-ink-soft">
           <Icon name="shield" className="mt-0.5 h-4 w-4 shrink-0 text-klar-500" />
-          이 앱은 로컬·서버 파일 저장 기반이라 서버 인증은 없고, 관리자 코드로 클라이언트
-          접근만 확인합니다.
+          현재 계정은 일반 스태프 권한입니다. 관리자 비밀번호로 다시 접속하면 이 페이지를
+          사용할 수 있습니다.
         </p>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Field label="관리자 코드" error={error || undefined}>
-            <Input
-              type="password"
-              value={passcode}
-              onChange={(e) => {
-                setPasscode(e.target.value)
-                if (error) setError('')
-              }}
-              placeholder="관리자 코드 입력"
-              autoComplete="current-password"
-            />
-          </Field>
-          <Button type="submit" className="w-full" size="lg">
-            관리자 페이지 입장
+        <Link to="/makeup">
+          <Button variant="secondary" className="w-full">
+            제품 목록으로
           </Button>
-        </form>
+        </Link>
       </Card>
     </div>
   )

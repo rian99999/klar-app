@@ -1,10 +1,9 @@
-import { useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useState } from 'react'
+import { useParams } from 'react-router-dom'
 import { PERSONAL_TYPE_MAP } from '../data/constants.js'
-import { useAppData } from '../context/AppDataContext.jsx'
 import { ProductCatalog } from '../components/ProductCatalog.jsx'
 import { toneBadgeVariant } from '../lib/product.js'
-import { formatDateKo, maskPhone, phoneDigits } from '../lib/format.js'
+import { formatDateKo, phoneDigits } from '../lib/format.js'
 import { Icon, Wordmark } from '../components/Icon.jsx'
 import {
   Badge,
@@ -16,30 +15,37 @@ import {
   StatTile,
 } from '../components/Ui.jsx'
 
-function normalizeName(value) {
-  return String(value ?? '').replace(/\s/g, '').toLowerCase()
-}
-
-function AuthCard({ customer, onAuthorized }) {
+function AuthCard({ customerId, onAuthorized }) {
   const [name, setName] = useState('')
   const [lastDigits, setLastDigits] = useState('')
   const [error, setError] = useState('')
-  const expectedLast4 = phoneDigits(customer.phone).slice(-4)
+  const [busy, setBusy] = useState(false)
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
-    if (!expectedLast4) {
-      setError('등록된 연락처가 없어 본인 확인을 진행할 수 없습니다.')
-      return
+    if (busy) return
+    setBusy(true)
+    try {
+      const response = await fetch(`/api/portal/${encodeURIComponent(customerId)}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, lastDigits }),
+      })
+      const payload = await response.json().catch(() => ({}))
+      if (response.ok && payload?.data) {
+        onAuthorized(payload.data)
+        return
+      }
+      setError(
+        response.status === 429
+          ? `시도가 너무 많습니다. ${payload?.retryAfterSec ?? 60}초 후 다시 시도해 주세요.`
+          : '이름 또는 연락처 뒷자리가 일치하지 않습니다.',
+      )
+    } catch {
+      setError('연결에 실패했습니다. 잠시 후 다시 시도해 주세요.')
+    } finally {
+      setBusy(false)
     }
-    const nameMatches = normalizeName(name) === normalizeName(customer.name)
-    const phoneMatches = phoneDigits(lastDigits).slice(-4) === expectedLast4
-    if (!nameMatches || !phoneMatches) {
-      setError('이름 또는 연락처 뒷자리가 일치하지 않습니다.')
-      return
-    }
-    setError('')
-    onAuthorized()
   }
 
   return (
@@ -84,8 +90,8 @@ function AuthCard({ customer, onAuthorized }) {
               required
             />
           </Field>
-          <Button type="submit" size="lg" className="w-full">
-            내 결과지 보기
+          <Button type="submit" size="lg" className="w-full" disabled={busy}>
+            {busy ? '확인 중…' : '내 결과지 보기'}
           </Button>
         </form>
       </Card>
@@ -204,109 +210,83 @@ function MakeupSessionCard({ session }) {
 
 export function CustomerPortalPage() {
   const { customerId } = useParams()
-  const { state } = useAppData()
-  const [authorized, setAuthorized] = useState(false)
+  const [data, setData] = useState(null)
 
-  const customer = state.customers.find((item) => item.id === customerId)
-
-  const personalSessions = useMemo(
-    () =>
-      state.personalColorSessions
-        .filter((session) => session.customerId === customerId)
-        .slice()
-        .sort((a, b) => String(b.dateISO).localeCompare(String(a.dateISO))),
-    [customerId, state.personalColorSessions],
-  )
-
-  const makeupSessions = useMemo(
-    () =>
-      state.makeupConsultSessions
-        .filter((session) => session.customerId === customerId)
-        .slice()
-        .sort((a, b) => String(b.dateISO).localeCompare(String(a.dateISO))),
-    [customerId, state.makeupConsultSessions],
-  )
-
-  if (!customer) {
+  if (!data) {
     return (
-      <main className="mx-auto flex min-h-[100dvh] w-full max-w-lg items-center px-4 py-10">
-        <Card className="w-full space-y-3 p-6 text-center">
-          <h1 className="brand-title text-2xl">결과지를 찾을 수 없습니다</h1>
-          <p className="text-sm leading-6 text-ink-muted">
-            링크가 올바른지 다시 확인해 주세요.
-          </p>
-        </Card>
+      <main className="mx-auto min-h-[100dvh] w-full max-w-lg px-4 py-8">
+        <AuthCard customerId={customerId} onAuthorized={setData} />
       </main>
     )
   }
 
+  const {
+    customer,
+    personalColorSessions,
+    makeupConsultSessions,
+    toneRecommendProducts,
+    productCategoryVisibility,
+  } = data
+
   return (
     <main className="mx-auto min-h-[100dvh] w-full max-w-lg px-4 py-8">
-      {!authorized ? (
-        <AuthCard customer={customer} onAuthorized={() => setAuthorized(true)} />
-      ) : (
-        <div className="animate-fade-up space-y-7 pb-14">
-          <section className="overflow-hidden rounded-xl border border-line bg-white/85 shadow-card">
-            <div className="bg-gradient-to-br from-klar-100 via-klar-50 to-pearl-50 px-5 pb-6 pt-7">
-              <p className="brand-kicker">KLAR Result</p>
-              <h1 className="brand-title mt-2.5 text-3xl leading-tight">
-                {customer.name}님 결과지
-              </h1>
-              <p className="mt-2.5 text-sm text-ink-muted">{maskPhone(customer.phone)}</p>
-            </div>
-            <div className="grid grid-cols-2 divide-x divide-line border-t border-line bg-white/80">
-              <StatTile label="Personal" value={personalSessions.length} suffix="회" />
-              <StatTile label="Makeup" value={makeupSessions.length} suffix="회" />
-            </div>
-          </section>
+      <div className="animate-fade-up space-y-7 pb-14">
+        <section className="overflow-hidden rounded-xl border border-line bg-white/85 shadow-card">
+          <div className="bg-gradient-to-br from-klar-100 via-klar-50 to-pearl-50 px-5 pb-6 pt-7">
+            <p className="brand-kicker">KLAR Result</p>
+            <h1 className="brand-title mt-2.5 text-3xl leading-tight">
+              {customer.name}님 결과지
+            </h1>
+            <p className="mt-2.5 text-sm text-ink-muted">
+              ***-****-{customer.phoneLast4}
+            </p>
+          </div>
+          <div className="grid grid-cols-2 divide-x divide-line border-t border-line bg-white/80">
+            <StatTile label="Personal" value={personalColorSessions.length} suffix="회" />
+            <StatTile label="Makeup" value={makeupConsultSessions.length} suffix="회" />
+          </div>
+        </section>
 
-          <section className="space-y-3">
-            <h2 className="brand-title text-xl">퍼스널컬러 결과</h2>
-            {personalSessions.length === 0 ? (
-              <EmptyState
-                icon="sparkle"
-                title="등록된 퍼스널컬러 결과지가 없습니다"
-                description="진단 후 담당 컨설턴트가 결과지를 등록하면 여기에 표시됩니다."
+        <section className="space-y-3">
+          <h2 className="brand-title text-xl">퍼스널컬러 결과</h2>
+          {personalColorSessions.length === 0 ? (
+            <EmptyState
+              icon="sparkle"
+              title="등록된 퍼스널컬러 결과지가 없습니다"
+              description="진단 후 담당 컨설턴트가 결과지를 등록하면 여기에 표시됩니다."
+            />
+          ) : (
+            personalColorSessions.map((session) => (
+              <PersonalResultCard
+                key={session.id}
+                session={session}
+                products={toneRecommendProducts}
+                visibility={productCategoryVisibility}
               />
-            ) : (
-              personalSessions.map((session) => (
-                <PersonalResultCard
-                  key={session.id}
-                  session={session}
-                  products={state.toneRecommendProducts}
-                  visibility={state.productCategoryVisibility}
-                />
-              ))
-            )}
-          </section>
+            ))
+          )}
+        </section>
 
-          <section className="space-y-3">
-            <h2 className="brand-title text-xl">메이크업 자료</h2>
-            {makeupSessions.length === 0 ? (
-              <EmptyState
-                icon="lipstick"
-                title="등록된 메이크업 컨설팅 기록이 없습니다"
-                description="컨설팅 당일 사용한 제품이 등록되면 여기에서 확인할 수 있어요."
-              />
-            ) : (
-              makeupSessions.map((session) => (
-                <MakeupSessionCard key={session.id} session={session} />
-              ))
-            )}
-          </section>
+        <section className="space-y-3">
+          <h2 className="brand-title text-xl">메이크업 자료</h2>
+          {makeupConsultSessions.length === 0 ? (
+            <EmptyState
+              icon="lipstick"
+              title="등록된 메이크업 컨설팅 기록이 없습니다"
+              description="컨설팅 당일 사용한 제품이 등록되면 여기에서 확인할 수 있어요."
+            />
+          ) : (
+            makeupConsultSessions.map((session) => (
+              <MakeupSessionCard key={session.id} session={session} />
+            ))
+          )}
+        </section>
 
-          <Link to="/makeup">
-            <Button variant="secondary" className="w-full" size="lg">
-              전체 추천 제품 보기
-            </Button>
-          </Link>
-
-          <footer className="pt-2 text-center">
-            <Wordmark className="text-2xl text-klar-400" />
-            <p className="brand-kicker mt-2">빛나는 당신을 위해</p>
-          </footer>
-        </div>
-      )}
+        <footer className="pt-2 text-center">
+          <Wordmark className="text-2xl text-klar-400" />
+          <p className="brand-kicker mt-2">빛나는 당신을 위해</p>
+        </footer>
+      </div>
     </main>
   )
 }

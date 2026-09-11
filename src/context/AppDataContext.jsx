@@ -12,6 +12,7 @@ import {
   createDefaultProductCategoryVisibility,
   productCategoryVisibilityKey,
 } from '../data/constants.js'
+import { useAuth } from './AuthContext.jsx'
 import { createId } from '../lib/ids.js'
 import {
   hasUserRecords,
@@ -29,6 +30,7 @@ export function AppDataProvider({ children }) {
   // user can tell whether their edits reached the server.
   const [syncStatus, setSyncStatus] = useState('idle')
   const initialLocalStateRef = useRef(state)
+  const { refresh: refreshAuth } = useAuth()
 
   useEffect(() => {
     let cancelled = false
@@ -43,6 +45,10 @@ export function AppDataProvider({ children }) {
         )
       })
       .catch((error) => {
+        if (error?.status === 401) {
+          refreshAuth()
+          return
+        }
         console.warn('[klar-sync] Server load failed. Using local cache.', error)
         if (!cancelled) setSyncStatus('offline')
       })
@@ -52,7 +58,7 @@ export function AppDataProvider({ children }) {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [refreshAuth])
 
   useEffect(() => {
     if (!serverLoaded) return
@@ -67,6 +73,10 @@ export function AppDataProvider({ children }) {
           if (!cancelled) setSyncStatus('saved')
         })
         .catch((error) => {
+          if (error?.status === 401) {
+            refreshAuth()
+            return
+          }
           console.warn('[klar-sync] Server save failed. Local cache was kept.', error)
           if (!cancelled) setSyncStatus('offline')
         })
@@ -75,7 +85,7 @@ export function AppDataProvider({ children }) {
       cancelled = true
       window.clearTimeout(timer)
     }
-  }, [serverLoaded, state])
+  }, [serverLoaded, state, refreshAuth])
 
   const touchCustomer = useCallback((customerId) => {
     const now = new Date().toISOString()

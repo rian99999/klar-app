@@ -2,6 +2,7 @@ import { Link, Outlet, useLocation } from 'react-router-dom'
 import { BottomNav } from '../components/BottomNav.jsx'
 import { Icon, Wordmark } from '../components/Icon.jsx'
 import { useAppData } from '../context/AppDataContext.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
 import { cn } from '../lib/cn.js'
 
 /** Routes that own the full viewport (immersive forms with their own action bar). */
@@ -44,6 +45,7 @@ function SyncBadge({ status }) {
 export function MainLayout() {
   const { pathname } = useLocation()
   const { syncStatus } = useAppData()
+  const { role, logout } = useAuth()
 
   const hideChrome = FULL_BLEED_ROUTES.some((pattern) => pattern.test(pathname))
 
@@ -65,13 +67,24 @@ export function MainLayout() {
             </Link>
             <div className="flex items-center gap-2">
               <SyncBadge status={syncStatus} />
-              <Link
-                to="/admin"
-                aria-label="관리자 페이지"
+              {role === 'admin' ? (
+                <Link
+                  to="/admin"
+                  aria-label="관리자 페이지"
+                  className="flex h-9 w-9 items-center justify-center rounded-md border border-line bg-white/80 text-ink-muted transition hover:border-klar-300 hover:text-klar-700"
+                >
+                  <Icon name="shield" className="h-4 w-4" />
+                </Link>
+              ) : null}
+              <button
+                type="button"
+                onClick={logout}
+                aria-label="로그아웃"
+                title="로그아웃"
                 className="flex h-9 w-9 items-center justify-center rounded-md border border-line bg-white/80 text-ink-muted transition hover:border-klar-300 hover:text-klar-700"
               >
-                <Icon name="shield" className="h-4 w-4" />
-              </Link>
+                <Icon name="logout" className="h-4 w-4" />
+              </button>
             </div>
           </div>
         </header>
