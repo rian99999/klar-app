@@ -19,6 +19,7 @@ import {
 import { formatDateKo } from '../lib/format.js'
 import { cn } from '../lib/cn.js'
 import { Icon } from '../components/Icon.jsx'
+import { ProductImport } from '../components/ProductImport.jsx'
 import {
   Badge,
   Button,
@@ -124,6 +125,18 @@ function ProductForm({ draft, setDraft, onSubmit, onReset }) {
           </Button>
         ) : null}
       </header>
+
+      <ProductImport
+        onApply={(fields) =>
+          setDraft((current) => ({
+            ...current,
+            brand: fields.brand || current.brand,
+            productName: fields.productName || current.productName,
+            imageUrl: fields.imageUrl || current.imageUrl,
+            purchaseLink: fields.purchaseLink || current.purchaseLink,
+          }))
+        }
+      />
 
       <form onSubmit={onSubmit} className="space-y-5">
         <div className="grid grid-cols-2 gap-3">

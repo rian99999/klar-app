@@ -18,6 +18,7 @@ import {
   setSessionCookie,
   verifyPassword,
 } from './auth.js'
+import { fetchProductInfo } from './scrape.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const rootDir = path.resolve(__dirname, '..')
@@ -142,6 +143,8 @@ async function startServer() {
   const { secret: sessionSecret, ephemeral } = resolveSessionSecret()
   const loginLimiter = createRateLimiter()
   const portalLimiter = createRateLimiter({ max: 10 })
+  // Outbound fetches are costly and easy to abuse, so cap them per staff IP.
+  const scrapeLimiter = createRateLimiter({ max: 40, windowMs: 1000 * 60 * 10 })
 
   const clientKey = (req) => req.ip || req.socket.remoteAddress || 'unknown'
 
@@ -201,6 +204,27 @@ async function startServer() {
   app.post('/api/auth/logout', (req, res) => {
     clearSessionCookie(res, { isProduction })
     res.json({ ok: true })
+  })
+
+  /** Staff-only: reads a product page so the admin form can be prefilled. */
+  app.post('/api/products/scrape', requireStaff, async (req, res) => {
+    const key = clientKey(req)
+    const limit = scrapeLimiter.check(key)
+    if (!limit.allowed) {
+      res
+        .status(429)
+        .json({ ok: false, error: 'too_many_requests', retryAfterSec: limit.retryAfterSec })
+      return
+    }
+    scrapeLimiter.fail(key)
+
+    try {
+      res.json({ ok: true, data: await fetchProductInfo(req.body?.url) })
+    } catch (error) {
+      const code = error?.code ?? 'fetch_failed'
+      const status = code === 'invalid_url' || code === 'blocked_host' ? 400 : 502
+      res.status(status).json({ ok: false, error: code, status: error?.status })
+    }
   })
 
   /** Public: a customer proves identity, and receives only their own records. */
