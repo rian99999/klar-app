@@ -1,4 +1,5 @@
 import express from 'express'
+import { readFileSync } from 'node:fs'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -20,6 +21,37 @@ import {
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const rootDir = path.resolve(__dirname, '..')
+/**
+ * Loads `KEY=value` lines from a .env file next to package.json, so a password
+ * can be set by editing a text file instead of exporting shell variables.
+ * Real environment variables always win.
+ */
+function loadEnvFile(filePath) {
+  let raw
+  try {
+    raw = readFileSync(filePath, 'utf8')
+  } catch {
+    return
+  }
+  raw.split(/\r?\n/).forEach((line) => {
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.startsWith('#')) return
+    const index = trimmed.indexOf('=')
+    if (index <= 0) return
+    const key = trimmed.slice(0, index).trim()
+    let value = trimmed.slice(index + 1).trim()
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1)
+    }
+    if (key && process.env[key] === undefined) process.env[key] = value
+  })
+}
+
+loadEnvFile(path.join(path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'), '.env'))
+
 const isProduction =
   process.env.NODE_ENV === 'production' || process.argv.includes('--production')
 const port = Number(process.env.PORT || 5173)
