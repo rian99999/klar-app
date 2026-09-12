@@ -27,8 +27,27 @@ export function DataBackupCard() {
 
   const counts = countRecords(state)
 
-  function download() {
-    const blob = new Blob([JSON.stringify(state, null, 2)], {
+  /**
+   * 서버에 저장된 내용을 받아서 파일로 만듭니다. 서버에 닿지 못하면 이 기기에 있는
+   * 사본으로 대신 만들고, 그 사실을 알려 줍니다.
+   */
+  async function download() {
+    if (busy) return
+    setBusy(true)
+    let data = state
+    let fromServer = true
+    try {
+      const response = await fetch('/api/state', {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      })
+      if (!response.ok) throw new Error(String(response.status))
+      data = await response.json()
+    } catch {
+      fromServer = false
+    }
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], {
       type: 'application/json',
     })
     const url = URL.createObjectURL(blob)
@@ -39,7 +58,13 @@ export function DataBackupCard() {
     link.click()
     link.remove()
     URL.revokeObjectURL(url)
-    toast('백업 파일을 내려받았습니다.')
+    setBusy(false)
+    toast(
+      fromServer
+        ? '백업 파일을 내려받았습니다.'
+        : '서버에 연결하지 못해 이 기기에 저장된 내용으로 백업했습니다.',
+      fromServer ? undefined : { tone: 'info' },
+    )
   }
 
   async function restore(event) {
@@ -87,6 +112,7 @@ export function DataBackupCard() {
           variant="secondary"
           icon="link"
           className="whitespace-nowrap"
+          disabled={busy}
           onClick={download}
         >
           내려받기

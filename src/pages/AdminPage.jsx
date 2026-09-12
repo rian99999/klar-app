@@ -16,7 +16,7 @@ import {
   toneBadgeVariant,
   toneLabel,
 } from '../lib/product.js'
-import { formatDateKo, isoDateOnly } from '../lib/format.js'
+import { formatDateKo } from '../lib/format.js'
 import { cn } from '../lib/cn.js'
 import { Icon } from '../components/Icon.jsx'
 import { ProductImport } from '../components/ProductImport.jsx'
@@ -73,56 +73,6 @@ function draftFromProduct(product) {
  * VITE_ADMIN_PASSCODE check ran entirely in the browser with the code baked
  * into the bundle, so it kept nobody out.
  */
-/** Downloads the whole database as a dated JSON file the studio can keep. */
-function BackupCard() {
-  const { toast } = useToast()
-  const [busy, setBusy] = useState(false)
-
-  async function download() {
-    if (busy) return
-    setBusy(true)
-    try {
-      const response = await fetch('/api/state', {
-        credentials: 'same-origin',
-        headers: { Accept: 'application/json' },
-      })
-      if (!response.ok) throw new Error(String(response.status))
-      const blob = new Blob([JSON.stringify(await response.json(), null, 2)], {
-        type: 'application/json',
-      })
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `klar-backup-${isoDateOnly()}.json`
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
-      URL.revokeObjectURL(url)
-      toast('백업 파일을 내려받았습니다.')
-    } catch {
-      toast('백업에 실패했습니다. 잠시 후 다시 시도해 주세요.', { tone: 'error' })
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <Card className="space-y-3.5">
-      <header>
-        <p className="brand-kicker">Backup</p>
-        <h2 className="brand-title mt-1 text-lg">데이터 백업</h2>
-        <p className="mt-1.5 text-xs leading-5 text-ink-muted">
-          고객·예약·결과지·제품 정보를 파일 하나로 내려받습니다. 가끔 눌러서 컴퓨터에
-          보관해 두시면 어떤 경우에도 기록이 안전합니다.
-        </p>
-      </header>
-      <Button variant="secondary" className="w-full" onClick={download} disabled={busy}>
-        {busy ? '준비 중…' : '백업 파일 내려받기'}
-      </Button>
-    </Card>
-  )
-}
-
 function AdminGate({ children }) {
   const { role } = useAuth()
   if (role === 'admin') return children
@@ -483,8 +433,6 @@ export function AdminPage() {
         >
           <DataBackupCard />
         </Disclosure>
-
-        <BackupCard />
 
         <section>
           <SectionHeader kicker="Products" title="등록 제품" count={products.length} />
