@@ -1,121 +1,104 @@
 import { useMemo, useState } from 'react'
 import {
-  PERSONAL_TYPE_MAP,
   PRODUCT_CATEGORY_GROUPS,
   PRODUCT_CATEGORY_TABS,
-  PRODUCT_CATEGORY_TAB_MAP,
-  PRODUCT_TONE_BADGE_LABELS,
-  productCategoryVisibilityKey,
 } from '../data/constants.js'
+import {
+  categoryLabel,
+  getProductToneKeys,
+  isProductCategoryVisible,
+  productMatchesQuery,
+  productMatchesTone,
+  toneBadgeVariant,
+  toneLabel,
+} from '../lib/product.js'
 import { cn } from '../lib/cn.js'
-import { Card } from './Ui.jsx'
-
-function getProductToneKeys(product) {
-  if (Array.isArray(product.toneKeys) && product.toneKeys.length > 0) {
-    return product.toneKeys
-  }
-  return product.toneKey ? [product.toneKey] : []
-}
-
-function productMatchesTone(product, toneKeys) {
-  if (!toneKeys.length) return true
-  const productToneKeys = getProductToneKeys(product)
-  return toneKeys.some((toneKey) => productToneKeys.includes(toneKey))
-}
-
-function isProductCategoryVisible(visibility, groupKey, detailKey) {
-  if (!groupKey) return true
-  const groupVisible = visibility?.[productCategoryVisibilityKey(groupKey)]
-  const detailVisible = detailKey
-    ? visibility?.[productCategoryVisibilityKey(groupKey, detailKey)]
-    : true
-  return groupVisible !== false && detailVisible !== false
-}
-
-function toneBadgeClass(toneKey) {
-  if (toneKey.includes('cool') || toneKey.includes('summer') || toneKey.includes('winter')) {
-    return 'border-sky-200 bg-sky-50 text-klar-800'
-  }
-  if (toneKey.includes('warm') || toneKey.includes('spring') || toneKey.includes('autumn')) {
-    return 'border-amber-200 bg-amber-50 text-amber-800'
-  }
-  return 'border-slate-200 bg-slate-50 text-slate-600'
-}
-
-function categoryLabel(product) {
-  const group = PRODUCT_CATEGORY_TAB_MAP[product.categoryGroup]
-  const detail = group?.details.find((item) => item.key === product.categoryDetail)
-  return [group?.label, detail?.label].filter(Boolean).join(' · ') || '미분류'
-}
+import { Badge, EmptyState, SearchInput } from './Ui.jsx'
 
 function ProductCard({ product }) {
   const toneKeys = getProductToneKeys(product)
 
   return (
-    <Card className="overflow-hidden rounded-[12px] border-klar-100 bg-white p-0 shadow-card">
+    <article className="group flex flex-col overflow-hidden rounded-lg border border-line bg-white shadow-card transition duration-200 ease-smooth hover:-translate-y-0.5 hover:shadow-lift">
       <figure className="aspect-square w-full overflow-hidden bg-klar-50">
         {product.imageUrl ? (
           <img
             src={product.imageUrl}
             alt={product.productName}
             loading="lazy"
-            className="h-full w-full object-cover"
+            className="h-full w-full object-cover transition duration-500 ease-smooth group-hover:scale-[1.04]"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-klar-100 to-pearl-100 px-4 text-center font-display text-sm text-klar-400">
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-klar-100 to-pearl-100 font-display text-lg text-klar-400">
             KLAR
           </div>
         )}
       </figure>
-      <div className="space-y-2.5 p-3">
+
+      <div className="flex flex-1 flex-col gap-2.5 p-3">
         <div>
-          <p className="font-display text-[12px] leading-5 text-slate-500">
+          <p className="font-display text-xs leading-5 text-ink-muted">
             {product.brand || 'Brand'}
           </p>
-          <p className="mt-0.5 line-clamp-2 min-h-[2.5rem] text-sm font-semibold leading-5 text-klar-900">
+          <h3 className="mt-0.5 line-clamp-2 min-h-[2.5rem] text-[13px] font-semibold leading-5 text-ink">
             {product.productName}
-          </p>
+          </h3>
           <p className="mt-1 text-[10px] font-medium text-klar-500">
             {categoryLabel(product)}
           </p>
         </div>
-        <div className="flex min-h-[1.625rem] flex-wrap gap-1.5">
+
+        <div className="flex flex-wrap gap-1">
           {toneKeys.length > 0 ? (
             toneKeys.map((toneKey) => (
-              <span
+              <Badge
                 key={toneKey}
-                className={cn(
-                  'inline-flex rounded-[4px] border px-1.5 py-1 text-[10px] font-semibold leading-none',
-                  toneBadgeClass(toneKey),
-                )}
+                tone={toneBadgeVariant(toneKey)}
+                className="px-2 py-0.5 text-[10px]"
               >
-                {PRODUCT_TONE_BADGE_LABELS[toneKey] ??
-                  PERSONAL_TYPE_MAP[toneKey]?.label ??
-                  toneKey}
-              </span>
+                {toneLabel(toneKey)}
+              </Badge>
             ))
           ) : (
-            <span className="inline-flex rounded-[4px] border border-slate-200 bg-slate-50 px-1.5 py-1 text-[10px] font-semibold leading-none text-slate-500">
-              전체톤
-            </span>
+            <Badge className="px-2 py-0.5 text-[10px]">전체톤</Badge>
           )}
         </div>
+
         {product.purchaseLink ? (
           <a
             href={product.purchaseLink}
             target="_blank"
             rel="noreferrer noopener"
-            className="inline-flex w-full items-center justify-center rounded-[10px] bg-klar-500 px-3 py-2.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-white shadow-lift transition hover:bg-klar-600"
+            className="mt-auto inline-flex min-h-[2.5rem] w-full items-center justify-center rounded-md bg-klar-600 px-3 text-xs font-semibold text-white shadow-lift transition hover:bg-klar-700"
           >
             구매하기
           </a>
         ) : (
-          <span className="inline-flex w-full items-center justify-center rounded-[10px] border border-klar-100 bg-klar-50 px-3 py-2.5 text-[11px] font-semibold text-klar-400">
+          <span className="mt-auto inline-flex min-h-[2.5rem] w-full items-center justify-center rounded-md border border-line bg-surface-sunken px-3 text-xs font-semibold text-ink-faint">
             링크 준비중
           </span>
         )}
       </div>
-    </Card>
+    </article>
+  )
+}
+
+function Chip({ active, onClick, children, size = 'md' }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cn(
+        'shrink-0 rounded-full border font-semibold transition duration-200 ease-smooth',
+        size === 'md' ? 'px-4 py-2 text-[13px]' : 'px-3 py-1.5 text-[11px]',
+        active
+          ? 'border-klar-700 bg-klar-700 text-white shadow-lift'
+          : 'border-line-strong bg-white text-ink-soft hover:border-klar-400 hover:text-klar-700',
+      )}
+    >
+      {children}
+    </button>
   )
 }
 
@@ -125,19 +108,22 @@ export function ProductCatalog({
   toneKey,
   toneKeys,
   respectVisibility = true,
+  searchable = false,
   emptyMessage = '조건에 맞는 제품이 아직 없습니다.',
 }) {
   const [activeGroupKey, setActiveGroupKey] = useState('all')
   const [activeDetailKey, setActiveDetailKey] = useState('')
+  const [query, setQuery] = useState('')
 
   const visibleGroups = useMemo(() => {
     if (!respectVisibility) return PRODUCT_CATEGORY_GROUPS
-    return PRODUCT_CATEGORY_GROUPS.filter((group) => {
-      if (!isProductCategoryVisible(categoryVisibility, group.key)) return false
-      return group.details.some((detail) =>
-        isProductCategoryVisible(categoryVisibility, group.key, detail.key),
-      )
-    })
+    return PRODUCT_CATEGORY_GROUPS.filter(
+      (group) =>
+        isProductCategoryVisible(categoryVisibility, group.key) &&
+        group.details.some((detail) =>
+          isProductCategoryVisible(categoryVisibility, group.key, detail.key),
+        ),
+    )
   }, [categoryVisibility, respectVisibility])
 
   const effectiveGroupKey =
@@ -185,9 +171,8 @@ export function ProductCatalog({
       if (effectiveGroupKey !== 'all' && product.categoryGroup !== effectiveGroupKey) {
         return false
       }
-      if (effectiveDetailKey && product.categoryDetail !== effectiveDetailKey) {
-        return false
-      }
+      if (effectiveDetailKey && product.categoryDetail !== effectiveDetailKey) return false
+      if (searchable && !productMatchesQuery(product, query)) return false
       return true
     })
   }, [
@@ -195,80 +180,90 @@ export function ProductCatalog({
     effectiveDetailKey,
     effectiveGroupKey,
     products,
+    query,
     respectVisibility,
+    searchable,
     toneKey,
     toneKeys,
   ])
 
+  const filtersActive =
+    effectiveGroupKey !== 'all' || Boolean(effectiveDetailKey) || Boolean(query.trim())
+
+  function resetFilters() {
+    setActiveGroupKey('all')
+    setActiveDetailKey('')
+    setQuery('')
+  }
+
   return (
     <div className="space-y-4">
-      <div className="-mx-4 overflow-x-auto px-4 pb-1">
-        <div className="flex min-w-max gap-2">
-          {[PRODUCT_CATEGORY_TABS[0], ...visibleGroups].map((group) => {
-            const active = effectiveGroupKey === group.key
-            return (
-              <button
-                key={group.key}
-                type="button"
-                onClick={() => {
-                  setActiveGroupKey(group.key)
-                  setActiveDetailKey('')
-                }}
-                className={cn(
-                  'rounded-full border px-4 py-2 text-xs font-semibold transition',
-                  active
-                    ? 'border-klar-900 bg-klar-900 text-white'
-                    : 'border-klar-200 bg-white/85 text-klar-700 hover:border-klar-400',
-                )}
-              >
-                {group.label}
-              </button>
-            )
-          })}
-        </div>
+      {searchable ? (
+        <SearchInput
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onClear={() => setQuery('')}
+          placeholder="브랜드 · 제품명 · 톤 검색"
+          aria-label="제품 검색"
+        />
+      ) : null}
+
+      <div className="rail">
+        {[PRODUCT_CATEGORY_TABS[0], ...visibleGroups].map((group) => (
+          <Chip
+            key={group.key}
+            active={effectiveGroupKey === group.key}
+            onClick={() => {
+              setActiveGroupKey(group.key)
+              setActiveDetailKey('')
+            }}
+          >
+            {group.label}
+          </Chip>
+        ))}
       </div>
 
       {activeGroup?.key !== 'all' ? (
-        <div className="-mx-4 overflow-x-auto px-4 pb-1">
-          <div className="flex min-w-max gap-2">
-            <button
-              type="button"
-              onClick={() => setActiveDetailKey('')}
-              className={cn(
-                'rounded-full border px-3 py-1.5 text-[11px] font-semibold transition',
-                !effectiveDetailKey
-                  ? 'border-klar-500 bg-klar-500 text-white'
-                  : 'border-klar-100 bg-white text-klar-600',
-              )}
+        <div className="rail">
+          <Chip size="sm" active={!effectiveDetailKey} onClick={() => setActiveDetailKey('')}>
+            전체
+          </Chip>
+          {visibleDetails.map((detail) => (
+            <Chip
+              key={detail.key}
+              size="sm"
+              active={effectiveDetailKey === detail.key}
+              onClick={() => setActiveDetailKey(detail.key)}
             >
-              전체
-            </button>
-            {visibleDetails.map((detail) => {
-              const active = effectiveDetailKey === detail.key
-              return (
-                <button
-                  key={detail.key}
-                  type="button"
-                  onClick={() => setActiveDetailKey(detail.key)}
-                  className={cn(
-                    'rounded-full border px-3 py-1.5 text-[11px] font-semibold transition',
-                    active
-                      ? 'border-klar-500 bg-klar-500 text-white'
-                      : 'border-klar-100 bg-white text-klar-600',
-                  )}
-                >
-                  {detail.label}
-                </button>
-              )
-            })}
-          </div>
+              {detail.label}
+            </Chip>
+          ))}
         </div>
       ) : null}
 
+      <p className="text-[13px] text-ink-muted" role="status">
+        {filteredProducts.length}개 제품
+      </p>
+
       {filteredProducts.length === 0 ? (
-        <Card className="border-dashed bg-white/70 py-10 text-center text-sm text-klar-500">
-          {emptyMessage}
-        </Card>
+        <EmptyState
+          icon={filtersActive ? 'search' : 'lipstick'}
+          title={filtersActive ? '조건에 맞는 제품이 없습니다' : emptyMessage}
+          description={
+            filtersActive ? '필터를 넓히거나 검색어를 지워 보세요.' : undefined
+          }
+          action={
+            filtersActive ? (
+              <button
+                type="button"
+                onClick={resetFilters}
+                className="w-full rounded-md border border-line-strong bg-white px-4 py-2.5 text-sm font-medium text-ink transition hover:border-klar-400"
+              >
+                필터 초기화
+              </button>
+            ) : null
+          }
+        />
       ) : (
         <div className="grid grid-cols-2 gap-3">
           {filteredProducts.map((product) => (

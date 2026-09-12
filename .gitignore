@@ -23,3 +23,6 @@ server/data
 *.njsproj
 *.sln
 *.sw?
+
+# 비밀번호 파일 (절대 공유하지 마세요)
+.env

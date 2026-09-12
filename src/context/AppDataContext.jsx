@@ -12,6 +12,7 @@ import {
   createDefaultProductCategoryVisibility,
   productCategoryVisibilityKey,
 } from '../data/constants.js'
+import { useAuth } from './AuthContext.jsx'
 import { createId } from '../lib/ids.js'
 import {
   hasUserRecords,
@@ -25,7 +26,11 @@ const AppDataContext = createContext(null)
 export function AppDataProvider({ children }) {
   const [state, setState] = useState(() => loadState())
   const [serverLoaded, setServerLoaded] = useState(false)
+  // 'idle' | 'saving' | 'saved' | 'offline' — surfaced in the app header so the
+  // user can tell whether their edits reached the server.
+  const [syncStatus, setSyncStatus] = useState('idle')
   const initialLocalStateRef = useRef(state)
+  const { refresh: refreshAuth } = useAuth()
 
   useEffect(() => {
     let cancelled = false
@@ -40,7 +45,12 @@ export function AppDataProvider({ children }) {
         )
       })
       .catch((error) => {
+        if (error?.status === 401) {
+          refreshAuth()
+          return
+        }
         console.warn('[klar-sync] Server load failed. Using local cache.', error)
+        if (!cancelled) setSyncStatus('offline')
       })
       .finally(() => {
         if (!cancelled) setServerLoaded(true)
@@ -48,14 +58,34 @@ export function AppDataProvider({ children }) {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [refreshAuth])
 
   useEffect(() => {
     if (!serverLoaded) return
-    saveState(state).catch((error) => {
-      console.warn('[klar-sync] Server save failed. Local cache was kept.', error)
-    })
-  }, [serverLoaded, state])
+    let cancelled = false
+    // Coalesce bursts of edits into one PUT, and keep the status transition out
+    // of the render pass.
+    const timer = window.setTimeout(() => {
+      if (cancelled) return
+      setSyncStatus('saving')
+      saveState(state)
+        .then(() => {
+          if (!cancelled) setSyncStatus('saved')
+        })
+        .catch((error) => {
+          if (error?.status === 401) {
+            refreshAuth()
+            return
+          }
+          console.warn('[klar-sync] Server save failed. Local cache was kept.', error)
+          if (!cancelled) setSyncStatus('offline')
+        })
+    }, 250)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [serverLoaded, state, refreshAuth])
 
   const touchCustomer = useCallback((customerId) => {
     const now = new Date().toISOString()
@@ -360,8 +390,8 @@ export function AppDataProvider({ children }) {
   )
 
   const value = useMemo(
-    () => ({ state, actions }),
-    [state, actions],
+    () => ({ state, actions, ready: serverLoaded, syncStatus }),
+    [state, actions, serverLoaded, syncStatus],
   )
 
   return (

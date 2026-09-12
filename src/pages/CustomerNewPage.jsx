@@ -1,11 +1,24 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAppData } from '../context/AppDataContext.jsx'
-import { Button, Card, Field, Input, Label, PageHeader, Textarea } from '../components/Ui.jsx'
+import { useToast } from '../components/Toast.jsx'
+import { formatPhone } from '../lib/format.js'
+import {
+  Button,
+  Card,
+  Field,
+  FORM_BOTTOM_SPACE,
+  FormActionBar,
+  Input,
+  PageHeader,
+  Textarea,
+} from '../components/Ui.jsx'
 
 export function CustomerNewPage() {
   const navigate = useNavigate()
   const { actions } = useAppData()
+  const { toast } = useToast()
+
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
@@ -20,16 +33,21 @@ export function CustomerNewPage() {
       email: email.trim(),
       memo: memo.trim(),
     })
+    toast(`${name.trim()}님을 등록했습니다.`)
     if (id) navigate(`/customers/${id}`, { replace: true })
     else navigate('/customers', { replace: true })
   }
 
   return (
-    <div>
-      <PageHeader title="신규 고객 등록" />
+    <div className={FORM_BOTTOM_SPACE}>
+      <PageHeader
+        title="신규 고객 등록"
+        subtitle="이름만 있어도 저장할 수 있고, 나머지는 나중에 채워도 됩니다."
+        back="/customers"
+      />
 
       <form onSubmit={handleSubmit}>
-        <Card className="mb-24 space-y-4">
+        <Card className="space-y-5">
           <Field label="이름 · 닉네임">
             <Input
               required
@@ -39,16 +57,19 @@ export function CustomerNewPage() {
               autoComplete="name"
             />
           </Field>
-          <Field label="연락처">
+          <Field
+            label="연락처"
+            hint="결과지 링크의 본인 확인에 뒷 4자리가 사용됩니다."
+          >
             <Input
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => setPhone(formatPhone(e.target.value))}
               placeholder="010-0000-0000"
               inputMode="tel"
               autoComplete="tel"
             />
           </Field>
-          <Field label="이메일 (선택)">
+          <Field label="이메일" hint="선택 항목입니다.">
             <Input
               type="email"
               value={email}
@@ -57,32 +78,27 @@ export function CustomerNewPage() {
               autoComplete="email"
             />
           </Field>
-          <div>
-            <Label>메모</Label>
+          <Field label="메모">
             <Textarea
               value={memo}
               onChange={(e) => setMemo(e.target.value)}
               placeholder="피부 고민 · 선호 컨셉 등"
-              className="mt-1.5"
             />
-          </div>
+          </Field>
         </Card>
 
-        <div className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] left-0 right-0 z-30 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-sm">
-          <div className="mx-auto flex max-w-lg gap-2">
-            <Button
-              type="button"
-              variant="secondary"
-              className="flex-1"
-              onClick={() => navigate(-1)}
-            >
-              취소
-            </Button>
-            <Button type="submit" className="flex-1 shadow-lg shadow-klar-900/15">
-              저장
-            </Button>
-          </div>
-        </div>
+        <FormActionBar>
+          <Button
+            variant="secondary"
+            className="flex-1"
+            onClick={() => navigate('/customers')}
+          >
+            취소
+          </Button>
+          <Button type="submit" className="flex-[1.6]" disabled={!name.trim()}>
+            저장
+          </Button>
+        </FormActionBar>
       </form>
     </div>
   )

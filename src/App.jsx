@@ -1,5 +1,8 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { AppDataProvider } from './context/AppDataContext.jsx'
+import { AuthProvider } from './context/AuthContext.jsx'
+import { AuthGate } from './components/AuthGate.jsx'
+import { ToastProvider } from './components/Toast.jsx'
 import { MainLayout } from './layout/MainLayout.jsx'
 import { DashboardPage } from './pages/DashboardPage.jsx'
 import { CustomersPage } from './pages/CustomersPage.jsx'
@@ -13,10 +16,11 @@ import { MakeupHubPage } from './pages/MakeupHubPage.jsx'
 import { AdminPage } from './pages/AdminPage.jsx'
 import { CustomerPortalPage } from './pages/CustomerPortalPage.jsx'
 
-export default function App() {
+/** Staff area. Mounted only once the server has confirmed a session. */
+function StudioRoutes() {
   return (
-    <AppDataProvider>
-      <BrowserRouter>
+    <AuthGate>
+      <AppDataProvider>
         <Routes>
           <Route element={<MainLayout />}>
             <Route path="/" element={<DashboardPage />} />
@@ -48,10 +52,25 @@ export default function App() {
             <Route path="/makeup" element={<MakeupHubPage />} />
             <Route path="/admin" element={<AdminPage />} />
           </Route>
-          <Route path="/result/:customerId" element={<CustomerPortalPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </BrowserRouter>
-    </AppDataProvider>
+      </AppDataProvider>
+    </AuthGate>
+  )
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <ToastProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* Public: customers open this with a link, no studio login. */}
+            <Route path="/result/:customerId" element={<CustomerPortalPage />} />
+            <Route path="/*" element={<StudioRoutes />} />
+          </Routes>
+        </BrowserRouter>
+      </ToastProvider>
+    </AuthProvider>
   )
 }

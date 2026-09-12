@@ -5,33 +5,99 @@
   *,
   ::before,
   ::after {
-    border-color: #e5e7eb;
+    border-color: #dce9f4;
   }
 
   html {
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    scroll-behavior: smooth;
+    /* Korean glyphs read better with a touch more line box than the Latin default. */
+    line-height: 1.6;
   }
 
   body {
-    @apply min-h-[100dvh] bg-klar-50 font-sans text-klar-900 antialiased;
+    @apply min-h-[100dvh] bg-klar-50 font-sans text-ink antialiased;
     background:
-      radial-gradient(circle at top left, rgb(191 224 242 / 0.45), transparent 32rem),
+      radial-gradient(circle at top left, rgb(191 224 242 / 0.4), transparent 30rem),
+      radial-gradient(circle at 100% 0%, rgb(226 212 192 / 0.28), transparent 24rem),
       linear-gradient(180deg, #f2f7fb 0%, #f8f5ef 100%);
-    font-weight: 300;
+    background-attachment: fixed;
+    /* 300 was too thin for Hangul at body sizes — 400 keeps the airy feel and reads. */
+    font-weight: 400;
   }
 
   ::selection {
     @apply bg-klar-300 text-klar-950;
   }
+
+  /* Visible, on-brand keyboard focus everywhere; pointer clicks stay clean. */
+  :focus-visible {
+    outline: 2px solid #1a7fc4;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  button,
+  [role='button'],
+  a,
+  input,
+  select,
+  textarea {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  input[type='date'],
+  input[type='time'] {
+    /* iOS Safari otherwise renders these shorter than sibling inputs. */
+    min-height: 2.75rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }
 
 @layer components {
   .brand-kicker {
-    @apply text-[9px] font-medium uppercase tracking-brand text-klar-500;
+    @apply text-[10px] font-semibold uppercase tracking-brand text-klar-500;
   }
 
   .brand-title {
-    @apply font-display font-medium tracking-tight text-klar-900;
+    @apply font-display font-medium tracking-tight text-ink;
+  }
+
+  /* Horizontal chip rails: swipeable, snappy, and without a visible scrollbar. */
+  .rail {
+    @apply -mx-4 flex snap-x snap-mandatory gap-2 overflow-x-auto scroll-smooth px-4 pb-1;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .rail::-webkit-scrollbar {
+    display: none;
+  }
+
+  .rail > * {
+    @apply snap-start;
+  }
+
+  .skeleton {
+    @apply relative overflow-hidden rounded-md bg-line-soft;
+  }
+
+  .skeleton::after {
+    @apply absolute inset-0;
+    content: '';
+    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.75), transparent);
+    transform: translateX(-100%);
+    animation: shimmer 1.4s infinite;
   }
 }
