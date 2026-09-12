@@ -13,6 +13,7 @@ import {
   toneLabel,
 } from '../lib/product.js'
 import { cn } from '../lib/cn.js'
+import { ProductThumb } from './ProductThumb.jsx'
 import { Badge, EmptyState, SearchInput } from './Ui.jsx'
 
 function ProductCard({ product }) {
@@ -20,20 +21,7 @@ function ProductCard({ product }) {
 
   return (
     <article className="group flex flex-col overflow-hidden rounded-lg border border-line bg-white shadow-card transition duration-200 ease-smooth hover:-translate-y-0.5 hover:shadow-lift">
-      <figure className="aspect-square w-full overflow-hidden bg-klar-50">
-        {product.imageUrl ? (
-          <img
-            src={product.imageUrl}
-            alt={product.productName}
-            loading="lazy"
-            className="h-full w-full object-cover transition duration-500 ease-smooth group-hover:scale-[1.04]"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-klar-100 to-pearl-100 font-display text-lg text-klar-400">
-            KLAR
-          </div>
-        )}
-      </figure>
+      <ProductThumb product={product} className="w-full" />
 
       <div className="flex flex-1 flex-col gap-2.5 p-3">
         <div>
@@ -48,17 +36,23 @@ function ProductCard({ product }) {
           </p>
         </div>
 
+        {/* 두 개까지만 보여 주고 나머지는 개수로 — 카드 높이가 들쭉날쭉해지지 않게. */}
         <div className="flex flex-wrap gap-1">
           {toneKeys.length > 0 ? (
-            toneKeys.map((toneKey) => (
-              <Badge
-                key={toneKey}
-                tone={toneBadgeVariant(toneKey)}
-                className="px-2 py-0.5 text-[10px]"
-              >
-                {toneLabel(toneKey)}
-              </Badge>
-            ))
+            <>
+              {toneKeys.slice(0, 2).map((toneKey) => (
+                <Badge
+                  key={toneKey}
+                  tone={toneBadgeVariant(toneKey)}
+                  className="px-2 py-0.5 text-[10px]"
+                >
+                  {toneLabel(toneKey)}
+                </Badge>
+              ))}
+              {toneKeys.length > 2 ? (
+                <Badge className="px-2 py-0.5 text-[10px]">+{toneKeys.length - 2}</Badge>
+              ) : null}
+            </>
           ) : (
             <Badge className="px-2 py-0.5 text-[10px]">전체톤</Badge>
           )}

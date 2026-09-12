@@ -5,64 +5,24 @@ import { useAppData } from '../context/AppDataContext.jsx'
 import { useToast } from '../components/Toast.jsx'
 import { formatDateKo, formatPhone, phoneDigits } from '../lib/format.js'
 import { toneBadgeVariant } from '../lib/product.js'
-import { cn } from '../lib/cn.js'
 import { ProductCatalog } from '../components/ProductCatalog.jsx'
+import { SessionProductList } from '../components/SessionProductList.jsx'
 import { Icon } from '../components/Icon.jsx'
 import {
+  Avatar,
   Badge,
   Button,
   Card,
+  Disclosure,
   EmptyState,
   Field,
   Input,
+  NoteBlock,
   PageHeader,
   SectionHeader,
   StatTile,
   Textarea,
 } from '../components/Ui.jsx'
-
-/** Collapsible card shell shared by the personal-colour and makeup history lists. */
-function HistoryItem({ open, onToggle, title, subtitle, badge, children }) {
-  return (
-    <Card className="overflow-hidden p-0">
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={open}
-        className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-klar-50"
-      >
-        <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-semibold text-klar-500">{subtitle}</p>
-          <p className="mt-1 truncate text-[15px] font-semibold text-ink">{title}</p>
-        </div>
-        {badge}
-        <Icon
-          name="chevronDown"
-          className={cn(
-            'h-4 w-4 text-ink-faint transition duration-200 ease-smooth',
-            open ? 'rotate-180' : null,
-          )}
-        />
-      </button>
-      {open ? (
-        <div className="space-y-3 border-t border-line bg-surface-sunken px-4 py-4">
-          {children}
-        </div>
-      ) : null}
-    </Card>
-  )
-}
-
-function NoteBlock({ label, children }) {
-  return (
-    <div className="rounded-md border border-line bg-white p-4">
-      <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-klar-500">
-        {label}
-      </p>
-      <div className="whitespace-pre-wrap text-sm leading-6 text-ink-soft">{children}</div>
-    </div>
-  )
-}
 
 function ContactActions({ customer }) {
   const digits = phoneDigits(customer.phone)
@@ -102,55 +62,41 @@ function CustomerBasicsEditor({ customer, onSave }) {
   }
 
   return (
-    <Card className="p-0">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-klar-50"
-      >
-        <span className="flex-1 text-[15px] font-semibold text-ink">기본 정보</span>
-        {!open && customer.memo ? (
-          <span className="max-w-[10rem] truncate text-xs text-ink-muted">
-            {customer.memo}
-          </span>
-        ) : null}
-        <Icon
-          name="chevronDown"
-          className={cn(
-            'h-4 w-4 text-ink-faint transition duration-200 ease-smooth',
-            open ? 'rotate-180' : null,
-          )}
-        />
-      </button>
-      {open ? (
-        <form
-          onSubmit={handleSubmit}
-          className="space-y-4 border-t border-line bg-surface-sunken px-4 py-4"
-        >
-          <Field label="이름">
-            <Input value={name} onChange={(e) => setName(e.target.value)} required />
-          </Field>
-          <Field label="연락처">
-            <Input
-              value={phone}
-              onChange={(e) => setPhone(formatPhone(e.target.value))}
-              inputMode="tel"
-            />
-          </Field>
-          <Field label="이메일">
-            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          </Field>
-          <Field label="메모">
-            <Textarea value={memo} onChange={(e) => setMemo(e.target.value)} />
-          </Field>
-          <Button type="submit" className="w-full">
-            기본 정보 저장
-          </Button>
-        </form>
-      ) : null}
-    </Card>
+    <Disclosure
+      open={open}
+      onToggle={() => setOpen((v) => !v)}
+      title="기본 정보"
+      aside={customer.memo}
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <Field label="이름">
+          <Input value={name} onChange={(e) => setName(e.target.value)} required />
+        </Field>
+        <Field label="연락처">
+          <Input
+            value={phone}
+            onChange={(e) => setPhone(formatPhone(e.target.value))}
+            inputMode="tel"
+          />
+        </Field>
+        <Field label="이메일">
+          <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        </Field>
+        <Field label="메모">
+          <Textarea value={memo} onChange={(e) => setMemo(e.target.value)} />
+        </Field>
+        <Button type="submit" className="w-full">
+          기본 정보 저장
+        </Button>
+      </form>
+    </Disclosure>
   )
+}
+
+/** iOS expects `sms:번호&body=`, Android `sms:번호?body=`. */
+function smsSeparator() {
+  if (typeof navigator === 'undefined') return '?'
+  return /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent) ? '&' : '?'
 }
 
 function ResultShareCard({ customer }) {
@@ -168,6 +114,33 @@ function ResultShareCard({ customer }) {
     } catch {
       window.prompt('결과지 확인 링크를 복사해 주세요.', resultUrl)
     }
+  }
+
+  /**
+   * 휴대폰의 공유 시트(문자·카카오톡 등)를 엽니다.
+   * 공유 시트가 없는 브라우저에서는 문자 앱, 그것도 없으면 링크 복사로 넘어갑니다.
+   */
+  async function shareLink() {
+    const message = `[KLAR] ${customer.name}님 결과지입니다. ${resultUrl}`
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({
+          title: `${customer.name}님 KLAR 결과지`,
+          text: `${customer.name}님, KLAR 진단 결과지입니다. 이름과 연락처 뒷 4자리를 입력하면 열람하실 수 있어요.`,
+          url: resultUrl,
+        })
+        return
+      } catch (error) {
+        // 사용자가 공유창을 닫은 경우는 알림 없이 넘어갑니다.
+        if (error?.name === 'AbortError') return
+      }
+    }
+    const digits = phoneDigits(customer.phone)
+    if (digits) {
+      window.location.href = `sms:${digits}${smsSeparator()}body=${encodeURIComponent(message)}`
+      return
+    }
+    copyLink()
   }
 
   return (
@@ -191,12 +164,19 @@ function ResultShareCard({ customer }) {
         </p>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-2">
-        <Button variant="secondary" onClick={copyLink} icon="link">
-          링크 복사
-        </Button>
-        <Link to={resultPath}>
-          <Button className="w-full">미리보기</Button>
+      <div className="space-y-2">
+        <div className="grid grid-cols-2 gap-2">
+          <Button onClick={shareLink} icon="message">
+            공유하기
+          </Button>
+          <Button variant="secondary" onClick={copyLink} icon="link">
+            링크 복사
+          </Button>
+        </div>
+        <Link to={resultPath} className="block">
+          <Button variant="ghost" className="w-full">
+            고객 화면 미리보기
+          </Button>
         </Link>
       </div>
     </Card>
@@ -269,13 +249,14 @@ export function CustomerDetailPage() {
         title={customer.name}
         subtitle={customer.phone || '연락처 미입력'}
         back="/customers"
+        right={<Avatar name={customer.name} size="lg" />}
       />
 
       <ContactActions customer={customer} />
 
       <div className="grid grid-cols-2 divide-x divide-line overflow-hidden rounded-lg border border-line bg-white/85 shadow-card">
-        <StatTile label="Personal Color" value={personalSessions.length} suffix="회" />
-        <StatTile label="Makeup" value={makeupSessions.length} suffix="회" />
+        <StatTile label="퍼스널컬러" value={personalSessions.length} suffix="회" />
+        <StatTile label="메이크업" value={makeupSessions.length} suffix="회" />
       </div>
 
       {upcoming ? (
@@ -338,12 +319,12 @@ export function CustomerDetailPage() {
                 : null
               return (
                 <li key={session.id}>
-                  <HistoryItem
+                  <Disclosure
                     open={openPersonalId === session.id}
                     onToggle={() =>
                       setOpenPersonalId((cur) => (cur === session.id ? null : session.id))
                     }
-                    subtitle={formatDateKo(session.dateISO)}
+                    kicker={formatDateKo(session.dateISO)}
                     title={primary}
                     badge={
                       <Badge tone={toneBadgeVariant(session.primaryTypeKey)}>
@@ -376,7 +357,7 @@ export function CustomerDetailPage() {
                         결과지 수정
                       </Button>
                     </Link>
-                  </HistoryItem>
+                  </Disclosure>
                 </li>
               )
             })}
@@ -408,55 +389,27 @@ export function CustomerDetailPage() {
           <ul className="flex flex-col gap-2.5">
             {makeupSessions.map((session) => (
               <li key={session.id}>
-                <HistoryItem
+                <Disclosure
                   open={openMakeupId === session.id}
                   onToggle={() =>
                     setOpenMakeupId((cur) => (cur === session.id ? null : session.id))
                   }
-                  subtitle={formatDateKo(session.dateISO)}
+                  kicker={formatDateKo(session.dateISO)}
                   title={`사용 제품 ${session.products?.length ?? 0}개`}
                 >
                   {session.memo ? (
                     <NoteBlock label="세션 메모">{session.memo}</NoteBlock>
                   ) : null}
-                  <div className="overflow-hidden rounded-md border border-line bg-white">
-                    {(session.products ?? []).length === 0 ? (
-                      <p className="px-4 py-4 text-xs text-ink-muted">
-                        등록된 제품이 없습니다.
-                      </p>
-                    ) : (
-                      <ul className="divide-y divide-line-soft">
-                        {session.products.map((product, idx) => (
-                          <li key={product.lineId ?? idx} className="px-4 py-3">
-                            <div className="flex items-start gap-2">
-                              <Badge className="mt-0.5">{product.category}</Badge>
-                              <div className="min-w-0 flex-1">
-                                <p className="text-[13px] font-semibold text-ink">
-                                  {product.productName || '제품명 미입력'}
-                                </p>
-                                <p className="mt-0.5 text-[11px] text-ink-muted">
-                                  {[product.brand, product.shade]
-                                    .filter(Boolean)
-                                    .join(' · ') || '브랜드/색상 미입력'}
-                                </p>
-                                {product.memo ? (
-                                  <p className="mt-1.5 text-[11px] leading-5 text-ink-muted">
-                                    {product.memo}
-                                  </p>
-                                ) : null}
-                              </div>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
+                  <SessionProductList
+                    products={session.products ?? []}
+                    emptyMessage="등록된 제품이 없습니다."
+                  />
                   <Link to={`/customers/${customer.id}/consult/${session.id}`}>
                     <Button variant="secondary" className="w-full">
                       기록 수정
                     </Button>
                   </Link>
-                </HistoryItem>
+                </Disclosure>
               </li>
             ))}
           </ul>

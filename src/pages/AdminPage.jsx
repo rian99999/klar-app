@@ -20,10 +20,13 @@ import { formatDateKo } from '../lib/format.js'
 import { cn } from '../lib/cn.js'
 import { Icon } from '../components/Icon.jsx'
 import { ProductImport } from '../components/ProductImport.jsx'
+import { ProductThumb } from '../components/ProductThumb.jsx'
+import { DataBackupCard } from '../components/DataBackupCard.jsx'
 import {
   Badge,
   Button,
   Card,
+  Disclosure,
   EmptyState,
   Field,
   Input,
@@ -271,14 +274,10 @@ function VisibilityManager({ visibility, actions }) {
   )
 
   return (
-    <Card className="space-y-4">
-      <header>
-        <p className="brand-kicker">Category Display</p>
-        <h2 className="brand-title mt-1 text-lg">카테고리 노출 관리</h2>
-        <p className="mt-1.5 text-xs leading-5 text-ink-muted">
-          꺼진 카테고리는 고객 결과지와 제품 목록의 필터에서 숨겨집니다.
-        </p>
-      </header>
+    <div className="space-y-4">
+      <p className="text-xs leading-5 text-ink-muted">
+        꺼진 카테고리는 고객 결과지와 제품 목록의 필터에서 숨겨집니다.
+      </p>
 
       <label className="flex cursor-pointer items-center justify-between gap-3 rounded-md border border-klar-200 bg-klar-50 px-3.5 py-3 text-sm font-semibold text-ink">
         <span>전체 카테고리 노출</span>
@@ -338,7 +337,7 @@ function VisibilityManager({ visibility, actions }) {
           )
         })}
       </div>
-    </Card>
+    </div>
   )
 }
 
@@ -347,6 +346,7 @@ export function AdminPage() {
   const { toast } = useToast()
   const [draft, setDraft] = useState(createEmptyDraft)
   const [query, setQuery] = useState('')
+  const [panel, setPanel] = useState(null)
 
   const products = useMemo(
     () =>
@@ -412,10 +412,27 @@ export function AdminPage() {
           onReset={resetDraft}
         />
 
-        <VisibilityManager
-          visibility={state.productCategoryVisibility}
-          actions={actions}
-        />
+        {/* 자주 쓰지 않는 설정은 접어 두어 등록 폼과 제품 목록이 가깝게 붙도록 합니다. */}
+        <Disclosure
+          open={panel === 'visibility'}
+          onToggle={() => setPanel((p) => (p === 'visibility' ? null : 'visibility'))}
+          kicker="Category Display"
+          title="카테고리 노출 관리"
+        >
+          <VisibilityManager
+            visibility={state.productCategoryVisibility}
+            actions={actions}
+          />
+        </Disclosure>
+
+        <Disclosure
+          open={panel === 'backup'}
+          onToggle={() => setPanel((p) => (p === 'backup' ? null : 'backup'))}
+          kicker="Backup"
+          title="데이터 백업 · 복원"
+        >
+          <DataBackupCard />
+        </Disclosure>
 
         <section>
           <SectionHeader kicker="Products" title="등록 제품" count={products.length} />
@@ -448,20 +465,11 @@ export function AdminPage() {
                 <li key={product.id}>
                   <Card className="p-3">
                     <div className="grid grid-cols-[5rem_minmax(0,1fr)] gap-3">
-                      <figure className="aspect-square overflow-hidden rounded-md bg-klar-50">
-                        {product.imageUrl ? (
-                          <img
-                            src={product.imageUrl}
-                            alt=""
-                            className="h-full w-full object-cover"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="flex h-full items-center justify-center font-display text-sm text-klar-300">
-                            KLAR
-                          </div>
-                        )}
-                      </figure>
+                      <ProductThumb
+                        product={product}
+                        className="rounded-md"
+                        placeholderClassName="text-sm"
+                      />
                       <div className="min-w-0">
                         <p className="text-[11px] font-semibold text-klar-500">
                           {categoryLabel(product)}

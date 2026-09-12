@@ -13,7 +13,7 @@ const CHOSEONG_GROUP = {
 }
 
 /** Initial-consonant bucket for a name, used to index the customer list. */
-export function initialLetter(name) {
+function initialLetter(name) {
   const first = String(name ?? '').trim().charAt(0)
   if (!first) return '#'
   const code = first.charCodeAt(0)

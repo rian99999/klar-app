@@ -1,18 +1,12 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { APPOINTMENT_COURSE_MAP } from '../data/constants.js'
 import { useAppData } from '../context/AppDataContext.jsx'
-import {
-  formatTime,
-  isoDateOnly,
-  relativeDayLabel,
-  formatDateShort,
-} from '../lib/format.js'
+import { formatDateKo, isoDateOnly, weekDatesOf } from '../lib/format.js'
 import { Icon, Wordmark } from '../components/Icon.jsx'
+import { AppointmentCard } from '../components/AppointmentCard.jsx'
+import { CustomerCard } from '../components/CustomerCard.jsx'
 import {
-  Badge,
   Button,
-  CardLink,
   EmptyState,
   SectionHeader,
   SkeletonList,
@@ -27,71 +21,35 @@ const QUICK_ACTIONS = [
   { to: '/makeup', label: '제품 찾기', icon: 'lipstick' },
 ]
 
-function AppointmentRow({ appointment, customerName, showDate }) {
-  return (
-    <Link to={`/appointments/${appointment.id}/edit`} className="block">
-      <CardLink className="p-0">
-        <div className="flex items-stretch">
-          <div className="flex w-[4.5rem] shrink-0 flex-col items-center justify-center rounded-l-lg bg-klar-700 px-2 py-3 text-white">
-            <p className="text-lg font-semibold leading-none tabular-nums">
-              {formatTime(appointment.time)}
-            </p>
-            {showDate ? (
-              <p className="mt-1.5 text-[10px] font-medium text-klar-200">
-                {relativeDayLabel(appointment.date)}
-              </p>
-            ) : (
-              <p className="mt-1.5 text-[9px] uppercase tracking-brand text-klar-300">
-                time
-              </p>
-            )}
-          </div>
-          <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 px-3.5 py-3">
-            <p className="truncate text-[15px] font-semibold text-ink">
-              {customerName ?? '미지정 고객'}
-            </p>
-            <div className="flex flex-wrap items-center gap-1.5">
-              <Badge tone="brand">
-                {APPOINTMENT_COURSE_MAP[appointment.course] ?? appointment.course}
-              </Badge>
-              {showDate ? (
-                <span className="text-[11px] text-ink-muted">
-                  {formatDateShort(`${appointment.date}T12:00:00`)}
-                </span>
-              ) : null}
-            </div>
-            {appointment.note ? (
-              <p className="line-clamp-1 text-xs text-ink-muted">{appointment.note}</p>
-            ) : null}
-          </div>
-          <Icon
-            name="chevronRight"
-            className="my-auto mr-3 h-4 w-4 text-ink-faint"
-          />
-        </div>
-      </CardLink>
-    </Link>
-  )
+/** A greeting beats a bare dashboard when the app is opened many times a day. */
+function greeting(hour = new Date().getHours()) {
+  if (hour < 6) return '늦은 시간까지 수고 많으세요'
+  if (hour < 11) return '좋은 아침이에요'
+  if (hour < 14) return '점심 전후로 바쁘시죠'
+  if (hour < 18) return '오늘도 잘 하고 계세요'
+  return '오늘 하루도 고생하셨어요'
 }
 
 export function DashboardPage() {
   const { state, ready } = useAppData()
   const today = isoDateOnly()
 
-  const customerNameById = useMemo(
-    () => new Map(state.customers.map((c) => [c.id, c.name])),
+  const customerById = useMemo(
+    () => new Map(state.customers.map((c) => [c.id, c])),
     [state.customers],
   )
 
-  const { todayAppts, upcomingAppts } = useMemo(() => {
+  const { todayAppts, upcomingAppts, weekCount } = useMemo(() => {
     const sorted = [...state.appointments].sort(
       (a, b) =>
         String(a.date).localeCompare(String(b.date)) ||
         String(a.time || '').localeCompare(String(b.time || '')),
     )
+    const week = new Set(weekDatesOf(today))
     return {
       todayAppts: sorted.filter((a) => a.date === today),
       upcomingAppts: sorted.filter((a) => a.date > today).slice(0, 3),
+      weekCount: sorted.filter((a) => week.has(a.date)).length,
     }
   }, [state.appointments, today])
 
@@ -122,14 +80,16 @@ export function DashboardPage() {
           </div>
           <p className="brand-kicker mb-3">Color &amp; Makeup</p>
           <Wordmark className="block text-5xl text-klar-700" />
-          <p className="mt-3 max-w-[20rem] text-sm leading-7 text-ink-soft">
-            당신이 가장 빛나는 색을, 우리가 찾아드립니다.
+          <p className="mt-4 text-[15px] font-semibold text-ink">{greeting()}</p>
+          <p className="mt-1 text-xs text-ink-muted">
+            {formatDateKo(`${today}T12:00:00`)} · 오늘 예약 {todayAppts.length}건
           </p>
         </div>
-        <div className="grid grid-cols-3 divide-x divide-line border-t border-line bg-white/80">
-          <StatTile label="Today" value={todayAppts.length} suffix="건" />
-          <StatTile label="Clients" value={state.customers.length} suffix="명" />
-          <StatTile label="Records" value={sessionCount} suffix="건" />
+        <div className="grid grid-cols-4 divide-x divide-line border-t border-line bg-white/80">
+          <StatTile label="오늘" value={todayAppts.length} suffix="건" className="px-2.5" />
+          <StatTile label="이번 주" value={weekCount} suffix="건" className="px-2.5" />
+          <StatTile label="고객" value={state.customers.length} suffix="명" className="px-2.5" />
+          <StatTile label="기록" value={sessionCount} suffix="건" className="px-2.5" />
         </div>
       </section>
 
@@ -183,9 +143,10 @@ export function DashboardPage() {
           <ul className="flex flex-col gap-2.5">
             {todayAppts.map((appointment) => (
               <li key={appointment.id}>
-                <AppointmentRow
+                <AppointmentCard
                   appointment={appointment}
-                  customerName={customerNameById.get(appointment.customerId)}
+                  customer={customerById.get(appointment.customerId)}
+                  tone="solid"
                 />
               </li>
             ))}
@@ -200,9 +161,9 @@ export function DashboardPage() {
           <ul className="flex flex-col gap-2.5">
             {upcomingAppts.map((appointment) => (
               <li key={appointment.id}>
-                <AppointmentRow
+                <AppointmentCard
                   appointment={appointment}
-                  customerName={customerNameById.get(appointment.customerId)}
+                  customer={customerById.get(appointment.customerId)}
                   showDate
                 />
               </li>
@@ -241,22 +202,7 @@ export function DashboardPage() {
           <ul className="flex flex-col gap-2">
             {recentCustomers.map((customer) => (
               <li key={customer.id}>
-                <Link to={`/customers/${customer.id}`} className="block">
-                  <CardLink>
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-klar-100 to-pearl-100 text-sm font-semibold text-klar-700">
-                        {String(customer.name ?? '?').trim().charAt(0) || '?'}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-semibold text-ink">{customer.name}</p>
-                        <p className="mt-0.5 truncate text-xs text-ink-muted">
-                          {customer.phone || '연락처 미입력'}
-                        </p>
-                      </div>
-                      <Icon name="chevronRight" className="h-4 w-4 text-ink-faint" />
-                    </div>
-                  </CardLink>
-                </Link>
+                <CustomerCard customer={customer} size="sm" />
               </li>
             ))}
           </ul>

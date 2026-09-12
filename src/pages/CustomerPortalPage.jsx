@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { PERSONAL_TYPE_MAP } from '../data/constants.js'
 import { ProductCatalog } from '../components/ProductCatalog.jsx'
+import { SessionProductList } from '../components/SessionProductList.jsx'
 import { toneBadgeVariant } from '../lib/product.js'
 import { formatDateKo, phoneDigits } from '../lib/format.js'
 import { Icon, Wordmark } from '../components/Icon.jsx'
@@ -12,6 +13,7 @@ import {
   EmptyState,
   Field,
   Input,
+  NoteBlock,
   StatTile,
 } from '../components/Ui.jsx'
 
@@ -129,14 +131,9 @@ function PersonalResultCard({ session, products, visibility }) {
         ) : null}
       </header>
 
-      <div className="rounded-md bg-klar-50 p-4">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-klar-500">
-          진단 메모
-        </p>
-        <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-ink-soft">
-          {session.memo || '등록된 진단 메모가 없습니다.'}
-        </p>
-      </div>
+      <NoteBlock label="진단 메모" tone="tinted">
+        {session.memo || '등록된 진단 메모가 없습니다.'}
+      </NoteBlock>
 
       <section>
         <div className="mb-3">
@@ -167,43 +164,12 @@ function MakeupSessionCard({ session }) {
       </header>
 
       {session.memo ? (
-        <div className="rounded-md bg-klar-50 p-4">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-klar-500">
-            컨설팅 메모
-          </p>
-          <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-ink-soft">
-            {session.memo}
-          </p>
-        </div>
+        <NoteBlock label="컨설팅 메모" tone="tinted">
+          {session.memo}
+        </NoteBlock>
       ) : null}
 
-      <div className="overflow-hidden rounded-md border border-line">
-        {(session.products ?? []).length === 0 ? (
-          <p className="px-4 py-5 text-sm text-ink-muted">등록된 사용 제품이 없습니다.</p>
-        ) : (
-          <ul className="divide-y divide-line-soft">
-            {session.products.map((product, index) => (
-              <li key={product.lineId ?? index} className="flex gap-3 px-4 py-3.5">
-                <Badge className="mt-0.5 shrink-0">{product.category}</Badge>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-ink">
-                    {product.productName || '제품명 미입력'}
-                  </p>
-                  <p className="mt-0.5 text-xs text-ink-muted">
-                    {[product.brand, product.shade].filter(Boolean).join(' · ') ||
-                      '브랜드/색상 미입력'}
-                  </p>
-                  {product.memo ? (
-                    <p className="mt-1.5 whitespace-pre-wrap text-xs leading-5 text-ink-muted">
-                      {product.memo}
-                    </p>
-                  ) : null}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      <SessionProductList products={session.products ?? []} />
     </Card>
   )
 }
@@ -242,8 +208,8 @@ export function CustomerPortalPage() {
             </p>
           </div>
           <div className="grid grid-cols-2 divide-x divide-line border-t border-line bg-white/80">
-            <StatTile label="Personal" value={personalColorSessions.length} suffix="회" />
-            <StatTile label="Makeup" value={makeupConsultSessions.length} suffix="회" />
+            <StatTile label="퍼스널컬러" value={personalColorSessions.length} suffix="회" />
+            <StatTile label="메이크업" value={makeupConsultSessions.length} suffix="회" />
           </div>
         </section>
 
