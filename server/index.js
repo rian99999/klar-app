@@ -326,6 +326,23 @@ async function startServer() {
         '[klar-auth] KLAR_SESSION_SECRET is not set — sessions will end on restart.',
       )
     }
+    if (isProduction && !process.env.KLAR_DB_PATH) {
+      console.warn(
+        [
+          '',
+          '*********************************************************************',
+          '  [klar-db] KLAR_DB_PATH is not set.',
+          '',
+          '  Hosted containers get a fresh filesystem on every deploy and',
+          '  restart, so customer records saved here WILL BE LOST.',
+          '',
+          '  Attach a persistent volume and point KLAR_DB_PATH at it,',
+          '  for example: KLAR_DB_PATH=/data/klar-db.json',
+          '*********************************************************************',
+          '',
+        ].join('\n'),
+      )
+    }
   })
 }
 
