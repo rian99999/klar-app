@@ -4,6 +4,8 @@ import {
   scryptSync,
   timingSafeEqual,
 } from 'node:crypto'
+import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import path from 'node:path'
 
 /**
  * Staff authentication for the KLAR server.
@@ -32,25 +34,51 @@ function readEnvPassword() {
  */
 const DEV_PASSWORD = 'klar-dev'
 
+/**
+ * Returns null in production when no password is configured. The server then
+ * boots into setup mode and says so on screen: a hosted container that exits
+ * instead only shows the platform's generic "deploy failed", which hides the
+ * one thing the operator has to fix.
+ */
 export function resolvePasswords({ isProduction }) {
   const fromEnv = readEnvPassword()
   if (fromEnv) return { ...fromEnv, isDefault: false }
-  if (isProduction) {
-    throw new Error(
-      'KLAR_PASSWORD is not set. Set it before starting the server in production.',
-    )
-  }
+  if (isProduction) return null
   return { staff: DEV_PASSWORD, admin: DEV_PASSWORD, isDefault: true }
 }
 
 /**
- * The signing secret. A generated one is fine for a single instance; it just
- * means sessions are dropped on restart, so we say so at boot.
+ * The signing secret. KLAR_SESSION_SECRET wins; otherwise one is generated
+ * once and kept beside the database, so a restart no longer signs everyone
+ * out and the operator has one less variable to set. Only when that file
+ * cannot be written (read-only disk) does the secret stay in memory.
+ *
+ * @param {string} [storeDir] directory to keep the generated secret in
  */
-export function resolveSessionSecret() {
+export function resolveSessionSecret(storeDir) {
   const fromEnv = process.env.KLAR_SESSION_SECRET
-  if (fromEnv) return { secret: fromEnv, ephemeral: false }
-  return { secret: randomBytes(32).toString('hex'), ephemeral: true }
+  if (fromEnv) return { secret: fromEnv, ephemeral: false, source: 'env' }
+
+  if (storeDir) {
+    const file = path.join(storeDir, '.klar-session-secret')
+    try {
+      const saved = readFileSync(file, 'utf8').trim()
+      if (saved.length >= 32) return { secret: saved, ephemeral: false, source: 'file' }
+    } catch {
+      // 아직 없으면 아래에서 새로 만듭니다.
+    }
+    const generated = randomBytes(32).toString('hex')
+    try {
+      mkdirSync(storeDir, { recursive: true })
+      writeFileSync(file, `${generated}\n`, { encoding: 'utf8', mode: 0o600 })
+      chmodSync(file, 0o600)
+      return { secret: generated, ephemeral: false, source: 'file' }
+    } catch {
+      return { secret: generated, ephemeral: true, source: 'memory' }
+    }
+  }
+
+  return { secret: randomBytes(32).toString('hex'), ephemeral: true, source: 'memory' }
 }
 
 function constantTimeEquals(a, b) {
