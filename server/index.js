@@ -1,5 +1,5 @@
 import express from 'express'
-import { accessSync, constants, readFileSync } from 'node:fs'
+import { accessSync, constants, existsSync, readFileSync } from 'node:fs'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -162,11 +162,12 @@ function buildPortalPayload(state, customer) {
   }
 }
 
-/** 한 화면짜리 안내 페이지 (KLAR_PASSWORD 가 없을 때만 뜹니다). */
-const SETUP_PAGE = `<!doctype html>
+/** 앱 대신 띄우는 한 화면짜리 안내 페이지. */
+function noticePage({ title, heading, body }) {
+  return `<!doctype html>
 <html lang="ko"><head><meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>KLAR · 설정이 한 가지 남았습니다</title>
+<title>${title}</title>
 <style>
   body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
     background:linear-gradient(180deg,#f2f7fb,#f8f5ef);color:#0d3b6e;
@@ -181,42 +182,70 @@ const SETUP_PAGE = `<!doctype html>
     color:#5ba8cd;font-weight:700;margin-bottom:10px}
 </style></head><body><main>
 <p class="tag">KLAR SETUP</p>
-<h1>비밀번호를 아직 정하지 않았습니다</h1>
-<p>서버는 잘 켜져 있습니다. 고객 정보를 보호하기 위해, 접속 비밀번호가 정해지기 전에는
-앱을 열지 않습니다.</p>
+<h1>${heading}</h1>
+${body}
+</main></body></html>`
+}
+
+const SETUP_PAGE = noticePage({
+  title: 'KLAR · 설정이 한 가지 남았습니다',
+  heading: '비밀번호를 아직 정하지 않았습니다',
+  body: `<p>서버는 잘 켜져 있습니다. 고객 정보를 보호하기 위해, 접속 비밀번호가 정해지기
+전에는 앱을 열지 않습니다.</p>
 <ol>
   <li>배포한 서비스(예: Railway)의 <b>Variables</b> 화면을 엽니다.</li>
   <li><code>KLAR_PASSWORD</code> 를 추가하고 원하는 비밀번호를 넣습니다.</li>
   <li>저장하면 자동으로 다시 시작되고, 이 화면 대신 앱이 열립니다.</li>
 </ol>
 <p>기록이 지워지지 않게 하려면 볼륨을 <code>/data</code> 에 연결해 주세요. 연결해 두면
-저장 위치는 알아서 잡힙니다.</p>
-</main></body></html>`
+저장 위치는 알아서 잡힙니다.</p>`,
+})
 
-function startSetupServer() {
+const BUILD_PAGE = noticePage({
+  title: 'KLAR · 화면 파일을 만들지 못했습니다',
+  heading: '화면 파일(빌드)이 없습니다',
+  body: `<p>서버는 켜져 있지만 보여 줄 화면 파일이 없고, 자동으로 만드는 것도 실패했습니다.</p>
+<ol>
+  <li>배포 설정의 <b>Build Command</b> 가 <code>npm run build</code> 인지 확인합니다.</li>
+  <li>배포 로그 맨 아래의 오류 줄을 확인합니다.</li>
+</ol>`,
+})
+
+function startMessageServer(page, kind) {
   const app = express()
   app.set('trust proxy', 1)
   // 컨테이너 자체는 살아 있으므로 헬스체크는 통과시킵니다 (배포 실패로 뜨지 않게).
-  app.get('/api/health', (req, res) => res.json({ ok: true, setup: 'KLAR_PASSWORD' }))
+  app.get('/api/health', (req, res) => res.json({ ok: true, setup: kind }))
   app.use((req, res) => {
     res.status(503)
-    if (req.accepts('html')) res.type('html').send(SETUP_PAGE)
-    else res.json({ ok: false, error: 'setup_required', missing: 'KLAR_PASSWORD' })
+    if (req.accepts('html')) res.type('html').send(page)
+    else res.json({ ok: false, error: 'setup_required', setup: kind })
   })
+  const reason =
+    kind === 'KLAR_PASSWORD'
+      ? [
+          '  [klar-auth] KLAR_PASSWORD is not set.',
+          '',
+          '  The app is not served until a password is configured.',
+          "  Set KLAR_PASSWORD in your host's environment variables.",
+        ]
+      : [
+          '  [klar] No build to serve and building it failed.',
+          '',
+          '  Check that the build command is `npm run build`.',
+        ]
+
   app.listen(port, host, () => {
     console.error(
       [
         '',
         '*********************************************************************',
-        '  [klar-auth] KLAR_PASSWORD is not set.',
-        '',
-        '  The app is not served until a password is configured.',
-        '  Set KLAR_PASSWORD in your host\'s environment variables.',
+        ...reason,
         '*********************************************************************',
         '',
       ].join('\n'),
     )
-    console.log(`KLAR setup page at http://${host}:${port}/`)
+    console.log(`KLAR notice page at http://${host}:${port}/`)
   })
 }
 
@@ -228,7 +257,7 @@ async function startServer() {
 
   // 비밀번호가 없으면 앱을 열어 주지 않되, 무엇을 해야 하는지는 화면에 띄웁니다.
   if (!passwords) {
-    startSetupServer()
+    startMessageServer(SETUP_PAGE, 'KLAR_PASSWORD')
     return
   }
 
@@ -378,6 +407,22 @@ async function startServer() {
 
   if (isProduction) {
     const distDir = path.join(rootDir, 'dist')
+
+    // 빌드가 없으면 여기서 한 번 만들어 둡니다. 호스팅사가 빌드 단계를 건너뛰었을 때
+    // 빈 화면 대신 앱이 뜨게 하기 위해서입니다.
+    if (!existsSync(path.join(distDir, 'index.html'))) {
+      console.log('[klar] No build found — building the app once…')
+      try {
+        const { build } = await import('vite')
+        await build({ root: rootDir, logLevel: 'warn' })
+        console.log('[klar] Build finished.')
+      } catch (error) {
+        console.error('[klar] Build failed:', error?.message ?? error)
+        startMessageServer(BUILD_PAGE, 'build')
+        return
+      }
+    }
+
     app.use(express.static(distDir))
     app.use((req, res, next) => {
       if (req.method !== 'GET' || !req.accepts('html')) {

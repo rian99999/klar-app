@@ -26,3 +26,6 @@ server/data
 
 # 비밀번호 파일 (절대 공유하지 마세요)
 .env
+
+# 인터넷 주소용 임시 프로그램
+cloudflared.exe
