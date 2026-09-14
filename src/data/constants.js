@@ -40,16 +40,11 @@ export const APPOINTMENT_COURSE_MAP = Object.fromEntries(
   APPOINTMENT_COURSES.map((c) => [c.key, c.label]),
 )
 
-/** 추천 제품 기본 카테고리 (localStorage에서 확장·삭제 가능) */
-export const DEFAULT_RECOMMENDATION_CATEGORY_NAMES = [
-  '립',
-  '섀도우',
-  '파운데이션',
-  '치크',
-  '쉐이딩&하이라이터',
-  '아이브로우',
-  '마스카라',
-]
+/**
+ * 추천 제품 기본 카테고리.
+ * 컨설팅 당일 카테고리와 항상 같은 목록이어야 해서 한 곳에서만 정의합니다.
+ */
+export const DEFAULT_RECOMMENDATION_CATEGORY_NAMES = MAKEUP_DAY_CATEGORIES
 
 export const PRODUCT_CATEGORY_TABS = [
   {
@@ -98,10 +93,6 @@ export const PRODUCT_CATEGORY_TAB_MAP = Object.fromEntries(
 
 export const PRODUCT_CATEGORY_GROUPS = PRODUCT_CATEGORY_TABS.filter(
   (group) => group.key !== 'all',
-)
-
-export const RECOMMENDATION_CATEGORY_GROUP_MAP = Object.fromEntries(
-  PRODUCT_CATEGORY_GROUPS.map((group) => [group.key, group]),
 )
 
 export const PRODUCT_TONE_BADGE_LABELS = {

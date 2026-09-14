@@ -18,6 +18,7 @@ import {
   hasUserRecords,
   loadRemoteState,
   loadState,
+  normalizeState,
   saveState,
 } from '../lib/storage.js'
 
@@ -142,6 +143,11 @@ export function AppDataProvider({ children }) {
           }
         })
         return resultId
+      },
+
+      /** 백업 파일 복원용 — 전체 데이터를 통째로 교체합니다. */
+      replaceAllData(nextState) {
+        setState(normalizeState(nextState))
       },
 
       deleteCustomer(customerId) {
@@ -272,30 +278,6 @@ export function AppDataProvider({ children }) {
           makeupConsultSessions: s.makeupConsultSessions.filter((m) => m.id !== id),
         }))
         touchCustomer(customerId)
-      },
-
-      addRecommendationCategory(name) {
-        const trimmed = String(name).trim()
-        if (!trimmed) return
-        setState((s) => ({
-          ...s,
-          recommendationCategories: [
-            ...s.recommendationCategories,
-            { id: createId(), name: trimmed },
-          ],
-        }))
-      },
-
-      deleteRecommendationCategory(categoryId) {
-        setState((s) => ({
-          ...s,
-          recommendationCategories: s.recommendationCategories.filter(
-            (c) => c.id !== categoryId,
-          ),
-          toneRecommendProducts: s.toneRecommendProducts.filter(
-            (p) => p.categoryId !== categoryId,
-          ),
-        }))
       },
 
       upsertToneRecommendProduct(row) {

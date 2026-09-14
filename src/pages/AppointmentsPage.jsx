@@ -1,11 +1,9 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { APPOINTMENT_COURSE_MAP } from '../data/constants.js'
 import { useAppData } from '../context/AppDataContext.jsx'
 import {
   dayOfMonth,
   formatDateShort,
-  formatTime,
   isoDateOnly,
   relativeDayLabel,
   shiftIsoDate,
@@ -14,11 +12,10 @@ import {
 } from '../lib/format.js'
 import { cn } from '../lib/cn.js'
 import { Icon } from '../components/Icon.jsx'
+import { AppointmentCard } from '../components/AppointmentCard.jsx'
 import {
-  Badge,
   Button,
   Card,
-  CardLink,
   DateInput,
   EmptyState,
   PageHeader,
@@ -186,44 +183,15 @@ export function AppointmentsPage() {
         />
       ) : (
         <ul className="flex flex-col gap-2.5">
-          {list.map((appointment) => {
-            const customer = customerById.get(appointment.customerId)
-            return (
-              <li key={appointment.id}>
-                <Link to={`/appointments/${appointment.id}/edit`} className="block">
-                  <CardLink className="p-0">
-                    <div className="flex items-stretch">
-                      <div className="flex w-[4.5rem] shrink-0 flex-col items-center justify-center rounded-l-lg bg-klar-100 px-2 py-3">
-                        <p className="text-lg font-semibold leading-none tabular-nums text-klar-800">
-                          {formatTime(appointment.time)}
-                        </p>
-                      </div>
-                      <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5 px-3.5 py-3">
-                        <p className="truncate text-[15px] font-semibold text-ink">
-                          {customer?.name ?? '고객 미지정'}
-                        </p>
-                        <div>
-                          <Badge tone="brand">
-                            {APPOINTMENT_COURSE_MAP[appointment.course] ??
-                              appointment.course}
-                          </Badge>
-                        </div>
-                        {appointment.note ? (
-                          <p className="line-clamp-2 text-xs leading-5 text-ink-muted">
-                            {appointment.note}
-                          </p>
-                        ) : null}
-                      </div>
-                      <Icon
-                        name="chevronRight"
-                        className="my-auto mr-3 h-4 w-4 text-ink-faint"
-                      />
-                    </div>
-                  </CardLink>
-                </Link>
-              </li>
-            )
-          })}
+          {list.map((appointment) => (
+            <li key={appointment.id}>
+              <AppointmentCard
+                appointment={appointment}
+                customer={customerById.get(appointment.customerId)}
+                tone={date === today ? 'solid' : 'soft'}
+              />
+            </li>
+          ))}
         </ul>
       )}
     </div>

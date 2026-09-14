@@ -126,5 +126,3 @@ export async function saveState(state) {
     throw httpError(`Failed to save server state: ${response.status}`, response.status)
   }
 }
-
-export { STORAGE_KEY }

@@ -3,11 +3,9 @@ import { Link } from 'react-router-dom'
 import { useAppData } from '../context/AppDataContext.jsx'
 import { groupByInitial } from '../lib/hangul.js'
 import { phoneDigits } from '../lib/format.js'
-import { Icon } from '../components/Icon.jsx'
+import { CustomerCard, RecordCountBadge } from '../components/CustomerCard.jsx'
 import {
-  Badge,
   Button,
-  CardLink,
   EmptyState,
   PageHeader,
   SearchInput,
@@ -129,36 +127,14 @@ export function CustomersPage() {
                 </h2>
               ) : null}
               <ul className="flex flex-col gap-2">
-                {section.items.map((customer) => {
-                  const count = recordCount.get(customer.id) ?? 0
-                  return (
-                    <li key={customer.id}>
-                      <Link to={`/customers/${customer.id}`} className="block">
-                        <CardLink>
-                          <div className="flex items-center gap-3">
-                            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-klar-100 to-pearl-100 text-[15px] font-semibold text-klar-700">
-                              {String(customer.name ?? '?').trim().charAt(0) || '?'}
-                            </span>
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-[15px] font-semibold text-ink">
-                                {customer.name}
-                              </p>
-                              <p className="mt-0.5 truncate text-xs text-ink-muted">
-                                {customer.phone || '연락처 없음'}
-                              </p>
-                            </div>
-                            {count > 0 ? (
-                              <Badge tone="brand">기록 {count}</Badge>
-                            ) : (
-                              <Badge>기록 없음</Badge>
-                            )}
-                            <Icon name="chevronRight" className="h-4 w-4 text-ink-faint" />
-                          </div>
-                        </CardLink>
-                      </Link>
-                    </li>
-                  )
-                })}
+                {section.items.map((customer) => (
+                  <li key={customer.id}>
+                    <CustomerCard
+                      customer={customer}
+                      trailing={<RecordCountBadge count={recordCount.get(customer.id) ?? 0} />}
+                    />
+                  </li>
+                ))}
               </ul>
             </section>
           ))}

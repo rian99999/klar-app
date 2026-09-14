@@ -314,6 +314,65 @@ export function FormActionBar({ children }) {
 /** Spacer that keeps content clear of FormActionBar. */
 export const FORM_BOTTOM_SPACE = 'pb-[7.5rem]'
 
+/**
+ * Expand/collapse card. The history list, the customer basics editor and the
+ * result page all used to ship their own copy of this header markup.
+ */
+export function Disclosure({ open, onToggle, kicker, title, aside, badge, children }) {
+  return (
+    <Card className="overflow-hidden p-0">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-expanded={open}
+        className="flex w-full items-center gap-3 px-4 py-3.5 text-left transition hover:bg-klar-50"
+      >
+        <div className="min-w-0 flex-1">
+          {kicker ? (
+            <p className="text-[11px] font-semibold text-klar-500">{kicker}</p>
+          ) : null}
+          <p className={cn('truncate text-[15px] font-semibold text-ink', kicker ? 'mt-1' : null)}>
+            {title}
+          </p>
+        </div>
+        {!open && aside ? (
+          <span className="max-w-[9rem] truncate text-xs text-ink-muted">{aside}</span>
+        ) : null}
+        {badge}
+        <Icon
+          name="chevronDown"
+          className={cn(
+            'h-4 w-4 shrink-0 text-ink-faint transition duration-200 ease-smooth',
+            open ? 'rotate-180' : null,
+          )}
+        />
+      </button>
+      {open ? (
+        <div className="space-y-3 border-t border-line bg-surface-sunken px-4 py-4">
+          {children}
+        </div>
+      ) : null}
+    </Card>
+  )
+}
+
+/** Labelled read-only text block (진단 메모, 세션 메모 …). */
+export function NoteBlock({ label, tone = 'plain', children }) {
+  return (
+    <div
+      className={cn(
+        'rounded-md p-4',
+        tone === 'tinted' ? 'bg-klar-50' : 'border border-line bg-white',
+      )}
+    >
+      <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-klar-500">
+        {label}
+      </p>
+      <div className="whitespace-pre-wrap text-sm leading-7 text-ink-soft">{children}</div>
+    </div>
+  )
+}
+
 /* ------------------------------------------------------------------ *
  * Data display
  * ------------------------------------------------------------------ */
@@ -340,10 +399,34 @@ export function Badge({ tone = 'neutral', className, children }) {
   )
 }
 
+/** Initial bubble used wherever a customer is listed. */
+const AVATAR_SIZES = {
+  sm: 'h-9 w-9 text-[13px]',
+  md: 'h-11 w-11 text-[15px]',
+  lg: 'h-14 w-14 text-lg',
+}
+
+export function Avatar({ name, size = 'md', className }) {
+  const initial = String(name ?? '?').trim().charAt(0) || '?'
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        'flex shrink-0 items-center justify-center rounded-full font-semibold text-klar-700',
+        'bg-gradient-to-br from-klar-100 to-pearl-100 ring-1 ring-inset ring-white/70',
+        AVATAR_SIZES[size] ?? AVATAR_SIZES.md,
+        className,
+      )}
+    >
+      {initial}
+    </span>
+  )
+}
+
 export function StatTile({ label, value, suffix, className }) {
   return (
     <div className={cn('px-4 py-3', className)}>
-      <p className="brand-kicker">{label}</p>
+      <p className="brand-kicker truncate tracking-[0.12em]">{label}</p>
       <p className="mt-1.5 text-2xl font-semibold leading-none tabular-nums text-ink">
         {value}
         {suffix ? (

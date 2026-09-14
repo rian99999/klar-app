@@ -16,14 +16,17 @@ import {
   toneBadgeVariant,
   toneLabel,
 } from '../lib/product.js'
-import { formatDateKo, isoDateOnly } from '../lib/format.js'
+import { formatDateKo } from '../lib/format.js'
 import { cn } from '../lib/cn.js'
 import { Icon } from '../components/Icon.jsx'
 import { ProductImport } from '../components/ProductImport.jsx'
+import { ProductThumb } from '../components/ProductThumb.jsx'
+import { DataBackupCard } from '../components/DataBackupCard.jsx'
 import {
   Badge,
   Button,
   Card,
+  Disclosure,
   EmptyState,
   Field,
   Input,
@@ -70,56 +73,6 @@ function draftFromProduct(product) {
  * VITE_ADMIN_PASSCODE check ran entirely in the browser with the code baked
  * into the bundle, so it kept nobody out.
  */
-/** Downloads the whole database as a dated JSON file the studio can keep. */
-function BackupCard() {
-  const { toast } = useToast()
-  const [busy, setBusy] = useState(false)
-
-  async function download() {
-    if (busy) return
-    setBusy(true)
-    try {
-      const response = await fetch('/api/state', {
-        credentials: 'same-origin',
-        headers: { Accept: 'application/json' },
-      })
-      if (!response.ok) throw new Error(String(response.status))
-      const blob = new Blob([JSON.stringify(await response.json(), null, 2)], {
-        type: 'application/json',
-      })
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `klar-backup-${isoDateOnly()}.json`
-      document.body.appendChild(link)
-      link.click()
-      link.remove()
-      URL.revokeObjectURL(url)
-      toast('백업 파일을 내려받았습니다.')
-    } catch {
-      toast('백업에 실패했습니다. 잠시 후 다시 시도해 주세요.', { tone: 'error' })
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <Card className="space-y-3.5">
-      <header>
-        <p className="brand-kicker">Backup</p>
-        <h2 className="brand-title mt-1 text-lg">데이터 백업</h2>
-        <p className="mt-1.5 text-xs leading-5 text-ink-muted">
-          고객·예약·결과지·제품 정보를 파일 하나로 내려받습니다. 가끔 눌러서 컴퓨터에
-          보관해 두시면 어떤 경우에도 기록이 안전합니다.
-        </p>
-      </header>
-      <Button variant="secondary" className="w-full" onClick={download} disabled={busy}>
-        {busy ? '준비 중…' : '백업 파일 내려받기'}
-      </Button>
-    </Card>
-  )
-}
-
 function AdminGate({ children }) {
   const { role } = useAuth()
   if (role === 'admin') return children
@@ -321,14 +274,10 @@ function VisibilityManager({ visibility, actions }) {
   )
 
   return (
-    <Card className="space-y-4">
-      <header>
-        <p className="brand-kicker">Category Display</p>
-        <h2 className="brand-title mt-1 text-lg">카테고리 노출 관리</h2>
-        <p className="mt-1.5 text-xs leading-5 text-ink-muted">
-          꺼진 카테고리는 고객 결과지와 제품 목록의 필터에서 숨겨집니다.
-        </p>
-      </header>
+    <div className="space-y-4">
+      <p className="text-xs leading-5 text-ink-muted">
+        꺼진 카테고리는 고객 결과지와 제품 목록의 필터에서 숨겨집니다.
+      </p>
 
       <label className="flex cursor-pointer items-center justify-between gap-3 rounded-md border border-klar-200 bg-klar-50 px-3.5 py-3 text-sm font-semibold text-ink">
         <span>전체 카테고리 노출</span>
@@ -388,7 +337,7 @@ function VisibilityManager({ visibility, actions }) {
           )
         })}
       </div>
-    </Card>
+    </div>
   )
 }
 
@@ -397,6 +346,7 @@ export function AdminPage() {
   const { toast } = useToast()
   const [draft, setDraft] = useState(createEmptyDraft)
   const [query, setQuery] = useState('')
+  const [panel, setPanel] = useState(null)
 
   const products = useMemo(
     () =>
@@ -462,12 +412,27 @@ export function AdminPage() {
           onReset={resetDraft}
         />
 
-        <VisibilityManager
-          visibility={state.productCategoryVisibility}
-          actions={actions}
-        />
+        {/* 자주 쓰지 않는 설정은 접어 두어 등록 폼과 제품 목록이 가깝게 붙도록 합니다. */}
+        <Disclosure
+          open={panel === 'visibility'}
+          onToggle={() => setPanel((p) => (p === 'visibility' ? null : 'visibility'))}
+          kicker="Category Display"
+          title="카테고리 노출 관리"
+        >
+          <VisibilityManager
+            visibility={state.productCategoryVisibility}
+            actions={actions}
+          />
+        </Disclosure>
 
-        <BackupCard />
+        <Disclosure
+          open={panel === 'backup'}
+          onToggle={() => setPanel((p) => (p === 'backup' ? null : 'backup'))}
+          kicker="Backup"
+          title="데이터 백업 · 복원"
+        >
+          <DataBackupCard />
+        </Disclosure>
 
         <section>
           <SectionHeader kicker="Products" title="등록 제품" count={products.length} />
@@ -500,20 +465,11 @@ export function AdminPage() {
                 <li key={product.id}>
                   <Card className="p-3">
                     <div className="grid grid-cols-[5rem_minmax(0,1fr)] gap-3">
-                      <figure className="aspect-square overflow-hidden rounded-md bg-klar-50">
-                        {product.imageUrl ? (
-                          <img
-                            src={product.imageUrl}
-                            alt=""
-                            className="h-full w-full object-cover"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="flex h-full items-center justify-center font-display text-sm text-klar-300">
-                            KLAR
-                          </div>
-                        )}
-                      </figure>
+                      <ProductThumb
+                        product={product}
+                        className="rounded-md"
+                        placeholderClassName="text-sm"
+                      />
                       <div className="min-w-0">
                         <p className="text-[11px] font-semibold text-klar-500">
                           {categoryLabel(product)}

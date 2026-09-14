@@ -1,4 +1,5 @@
-import { Link, Outlet, useLocation } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Link, Outlet, useLocation, useNavigationType } from 'react-router-dom'
 import { BottomNav } from '../components/BottomNav.jsx'
 import { Icon, Wordmark } from '../components/Icon.jsx'
 import { useAppData } from '../context/AppDataContext.jsx'
@@ -44,8 +45,18 @@ function SyncBadge({ status }) {
 
 export function MainLayout() {
   const { pathname } = useLocation()
+  const navigationType = useNavigationType()
   const { syncStatus } = useAppData()
   const { role, logout } = useAuth()
+
+  /**
+   * Open a new page at the top. Going back (POP) keeps the browser's own
+   * position so returning to a long list lands where the user left it.
+   */
+  useEffect(() => {
+    if (navigationType === 'POP') return
+    window.scrollTo({ top: 0, behavior: 'auto' })
+  }, [pathname, navigationType])
 
   const hideChrome = FULL_BLEED_ROUTES.some((pattern) => pattern.test(pathname))
 
